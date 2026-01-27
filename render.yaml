@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: cat-tracker
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm run server
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: DATABASE_PATH
+        value: /opt/render/project/data/cats.db
+      - key: UPLOAD_DIR
+        value: /opt/render/project/uploads
+      - key: MAX_PHOTOS_PER_CAT
+        value: 7

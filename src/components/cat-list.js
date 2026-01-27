@@ -1,0 +1,244 @@
+class CatList extends HTMLElement {
+  constructor() {
+    super();
+    this.cats = [];
+    this.selectedCat = null;
+    this.viewMode = localStorage.getItem('catListViewMode') || 'grid';
+  }
+
+  async connectedCallback() {
+    await this.loadCats();
+    this.render();
+  }
+
+  async loadCats() {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch('/api/cats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        this.cats = await response.json();
+      }
+    } catch (error) {
+      console.error('Error loading cats:', error);
+    }
+  }
+
+  showCatProfile(cat) {
+    this.selectedCat = cat;
+    this.render();
+  }
+
+  render() {
+    if (this.selectedCat) {
+      this.innerHTML = `
+        <button class="btn btn-outline" id="back-btn" style="margin-bottom: 1rem;">← Back to List</button>
+        <cat-profile cat-id="${this.selectedCat.id}"></cat-profile>
+      `;
+      
+      this.querySelector('#back-btn').addEventListener('click', () => {
+        this.selectedCat = null;
+        this.render();
+      });
+      return;
+    }
+
+    this.innerHTML = `
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
+        <h2>All Cats (${this.cats.length})</h2>
+        <div style="display: flex; gap: 1rem; align-items: center;">
+          <div style="display: flex; gap: 0.5rem; background: var(--surface); border-radius: 0.5rem; padding: 0.25rem;">
+            <button class="view-toggle ${this.viewMode === 'grid' ? 'active' : ''}" data-view="grid" style="padding: 0.5rem 1rem; border: none; background: ${this.viewMode === 'grid' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'grid' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500;">
+              📱 Grid
+            </button>
+            <button class="view-toggle ${this.viewMode === 'table' ? 'active' : ''}" data-view="table" style="padding: 0.5rem 1rem; border: none; background: ${this.viewMode === 'table' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'table' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500;">
+              📊 Table
+            </button>
+          </div>
+          <input type="text" id="search" class="input" placeholder="Search cats..." style="max-width: 300px; margin: 0;">
+        </div>
+      </div>
+      
+      <div id="cats-container">
+        ${this.cats.length === 0 ? 
+          '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">No cats found. Upload a photo to get started!</p>' :
+          this.viewMode === 'grid' ? this.renderGridView() : this.renderTableView()
+        }
+      </div>
+    `;
+
+    this.querySelectorAll('.view-toggle').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        this.viewMode = e.target.dataset.view;
+        localStorage.setItem('catListViewMode', this.viewMode);
+        this.render();
+      });
+    });
+
+    this.querySelectorAll('.cat-card, .table-row').forEach(card => {
+      card.addEventListener('click', () => {
+        const catId = card.dataset.catId;
+        const cat = this.cats.find(c => c.id === parseInt(catId));
+        if (cat) this.showCatProfile(cat);
+      });
+    });
+
+    const searchInput = this.querySelector('#search');
+    searchInput?.addEventListener('input', (e) => {
+      this.filterCats(e.target.value);
+    });
+  }
+
+  renderGridView() {
+    return `
+      <div class="grid grid-2">
+        ${this.cats.map(cat => this.renderCatCard(cat)).join('')}
+      </div>
+    `;
+  }
+
+  renderTableView() {
+    return `
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
+          <thead>
+            <tr style="background: var(--primary-color); color: white;">
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Markings</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Gender</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Building</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Spay/Neuter</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Fed</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Days Not Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Photos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${this.cats.map(cat => this.renderTableRow(cat)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  renderTableRow(cat) {
+    const daysNotSeen = cat.daysNotSeen || 0;
+    const statusColor = daysNotSeen === 0 ? 'var(--success)' : daysNotSeen < 3 ? 'var(--warning)' : 'var(--error)';
+    
+    return `
+      <tr class="table-row" data-cat-id="${cat.id}" style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;">
+        <td style="padding: 1rem; font-weight: 600;">${cat.name}</td>
+        <td style="padding: 1rem; max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${cat.markings || '-'}</td>
+        <td style="padding: 1rem;">${cat.gender || '-'}</td>
+        <td style="padding: 1rem;">${cat.building || '-'}</td>
+        <td style="padding: 1rem;">${cat.spayNeuter ? '✓ Yes' : '✗ No'}</td>
+        <td style="padding: 1rem;">${cat.last_fed || '-'}</td>
+        <td style="padding: 1rem;">${cat.last_seen_by || '-'}</td>
+        <td style="padding: 1rem; color: ${statusColor}; font-weight: 600;">${daysNotSeen}</td>
+        <td style="padding: 1rem;">${cat.photos?.length || 0}</td>
+      </tr>
+    `;
+  }
+
+  filterCats(query) {
+    const filtered = this.cats.filter(cat => 
+      cat.name.toLowerCase().includes(query.toLowerCase()) ||
+      cat.markings?.toLowerCase().includes(query.toLowerCase()) ||
+      cat.building?.toLowerCase().includes(query.toLowerCase()) ||
+      cat.gender?.toLowerCase().includes(query.toLowerCase())
+    );
+    
+    const container = this.querySelector('#cats-container');
+    if (this.viewMode === 'grid') {
+      container.innerHTML = filtered.length === 0 
+        ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">No cats match your search.</p>'
+        : `<div class="grid grid-2">${filtered.map(cat => this.renderCatCard(cat)).join('')}</div>`;
+    } else {
+      container.innerHTML = filtered.length === 0
+        ? '<p style="text-align: center; color: var(--text-secondary); padding: 3rem;">No cats match your search.</p>'
+        : this.renderTableViewFiltered(filtered);
+    }
+    
+    this.querySelectorAll('.cat-card, .table-row').forEach(card => {
+      card.addEventListener('click', () => {
+        const catId = card.dataset.catId;
+        const cat = this.cats.find(c => c.id === parseInt(catId));
+        if (cat) this.showCatProfile(cat);
+      });
+    });
+  }
+
+  renderTableViewFiltered(cats) {
+    return `
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
+          <thead>
+            <tr style="background: var(--primary-color); color: white;">
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Markings</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Gender</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Building</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Spay/Neuter</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Fed</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Days Not Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600;">Photos</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${cats.map(cat => this.renderTableRow(cat)).join('')}
+          </tbody>
+        </table>
+      </div>
+    `;
+  }
+
+  renderCatCard(cat) {
+    const daysNotSeen = cat.daysNotSeen || 0;
+    const statusBadge = daysNotSeen === 0 ? 'badge-success' : daysNotSeen < 3 ? 'badge-warning' : 'badge-error';
+    const lastPhoto = cat.photos && cat.photos.length > 0 ? cat.photos[0] : null;
+
+    return `
+      <div class="card cat-card" data-cat-id="${cat.id}" style="cursor: pointer; transition: transform 0.2s;">
+        ${lastPhoto ? `
+          <img src="${lastPhoto.url}" alt="${cat.name}" 
+               style="width: 100%; height: 200px; object-fit: cover; border-radius: 0.5rem; margin-bottom: 1rem;">
+        ` : `
+          <div style="width: 100%; height: 200px; background: var(--border); border-radius: 0.5rem; margin-bottom: 1rem; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+            🐱
+          </div>
+        `}
+        
+        <h3 style="margin-bottom: 0.5rem;">${cat.name}</h3>
+        
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
+          <span class="badge ${statusBadge}">
+            ${daysNotSeen === 0 ? 'Seen Today' : `${daysNotSeen} days ago`}
+          </span>
+          ${cat.spayNeuter ? '<span class="badge badge-success">Spayed/Neutered</span>' : ''}
+        </div>
+        
+        <p style="color: var(--text-secondary); font-size: 0.875rem; margin-bottom: 0.5rem;">
+          ${cat.markings || 'No markings description'}
+        </p>
+        
+        ${cat.building ? `
+          <p style="color: var(--text-secondary); font-size: 0.875rem;">
+            📍 ${cat.building}
+          </p>
+        ` : ''}
+        
+        ${cat.lastSeenBy ? `
+          <p style="color: var(--text-secondary); font-size: 0.875rem;">
+            Last seen by: ${cat.lastSeenBy}
+          </p>
+        ` : ''}
+      </div>
+    `;
+  }
+}
+
+customElements.define('cat-list', CatList);
