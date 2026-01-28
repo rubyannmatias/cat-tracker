@@ -12,13 +12,25 @@ class CatProfile extends HTMLElement {
 
   async loadCat(catId) {
     try {
+      console.log('Loading cat with ID:', catId);
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/cats/${catId}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      console.log('Token found for cat loading:', !!token);
       
+      const response = await fetch(`/api/cats/${catId}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      console.log('Cat loading response status:', response.status);
+      console.log('Cat loading response ok:', response.ok);
+
       if (response.ok) {
         this.cat = await response.json();
+        console.log('Cat loaded successfully:', this.cat);
+      } else {
+        const error = await response.json();
+        console.error('Cat loading failed:', error);
       }
     } catch (error) {
       console.error('Error loading cat:', error);
@@ -27,12 +39,17 @@ class CatProfile extends HTMLElement {
 
   async updateCat(updates, showLoading = true) {
     try {
+      console.log('Updating cat with:', updates);
+      console.log('Cat ID:', this.cat.id);
+      
       // Show immediate loading feedback
       if (showLoading) {
         this.showLoadingState();
       }
       
       const token = localStorage.getItem('authToken');
+      console.log('Token found:', !!token);
+      
       const response = await fetch(`/api/cats/${this.cat.id}`, {
         method: 'PUT',
         headers: {
@@ -42,8 +59,12 @@ class CatProfile extends HTMLElement {
         body: JSON.stringify(updates)
       });
       
+      console.log('Update response status:', response.status);
+      console.log('Update response ok:', response.ok);
+      
       if (response.ok) {
         this.cat = await response.json();
+        console.log('Cat updated successfully:', this.cat);
         // Only re-render what's necessary
         if (updates.lastFed) {
           this.updateFeedingStatus();
@@ -52,6 +73,7 @@ class CatProfile extends HTMLElement {
         }
       } else {
         const error = await response.json();
+        console.error('Update failed:', error);
         const modal = document.getElementById('modal');
         await modal.showAlert('Update Failed', error.error || 'Failed to update cat');
       }
@@ -67,12 +89,18 @@ class CatProfile extends HTMLElement {
   }
 
   async markFed(period) {
+    console.log('Fed button clicked, period:', period);
     const user = JSON.parse(localStorage.getItem('currentUser'));
-    await this.updateCat({
+    console.log('Current user:', user);
+    
+    const updates = {
       lastFed: `${new Date().toISOString().split('T')[0]} ${period}`,
       lastSeenBy: user.name,
       daysNotSeen: 0
-    });
+    };
+    console.log('Feeding updates:', updates);
+    
+    await this.updateCat(updates);
   }
 
   showLoadingState() {
@@ -89,6 +117,46 @@ class CatProfile extends HTMLElement {
       btn.disabled = false;
       btn.innerHTML = btn.id === 'feed-am' ? '✓ Fed AM' : '✓ Fed PM';
     });
+  }
+
+  async deleteCat() {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/cats/${this.cat.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Cat deleted successfully:', result);
+        
+        // Show success message
+        const successMsg = document.createElement('div');
+        successMsg.style.cssText = 'position: fixed; top: 20px; right: 20px; background: var(--success); color: white; padding: 1rem 1.5rem; border-radius: 0.5rem; z-index: 2000; box-shadow: 0 4px 6px rgba(0,0,0,0.1);';
+        successMsg.textContent = `✓ ${result.message}`;
+        document.body.appendChild(successMsg);
+        setTimeout(() => successMsg.remove(), 3000);
+        
+        // Redirect to cats list
+        this.dispatchEvent(new CustomEvent('view-change', {
+          detail: { view: 'cats' },
+          bubbles: true,
+          composed: true
+        }));
+      } else {
+        const error = await response.json();
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Delete Failed', error.error || 'Failed to delete cat');
+      }
+    } catch (error) {
+      console.error('Error deleting cat:', error);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Delete Failed', 'Network error occurred while deleting cat');
+    }
   }
 
   updateFeedingStatus() {
@@ -226,12 +294,7 @@ class CatProfile extends HTMLElement {
                 </select>
               </div>
               
-              <div style="grid-column: 1 / -1;">
-                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Last Fed</label>
-                <input type="text" name="lastFed" class="input" value="${this.cat.lastFed || ''}" placeholder="e.g., 2024-01-28 AM">
-                <small style="color: var(--text-secondary);">Or use Fed buttons above</small>
-              </div>
-              
+                            
               <div style="grid-column: 1 / -1;">
                 <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Vaccinations</label>
                 <input type="text" name="vaccinations" class="input" value="${this.cat.vaccinations || ''}" placeholder="e.g., Rabies, FVRCP">
@@ -262,13 +325,31 @@ class CatProfile extends HTMLElement {
               <button type="submit" class="btn btn-primary" style="flex: 1;">💾 Save Changes</button>
               <button type="button" class="btn btn-outline" id="cancel-btn" style="flex: 1;">Cancel</button>
             </div>
+            
+            <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border);">
+              <button type="button" class="btn btn-danger" id="delete-btn" style="width: 100%;">
+                🗑️ Delete Cat Profile
+              </button>
+            </div>
           </form>
         </div>
       </div>
     `;
 
-    this.querySelector('#feed-am')?.addEventListener('click', () => this.markFed('AM'));
-    this.querySelector('#feed-pm')?.addEventListener('click', () => this.markFed('PM'));
+    const feedAmBtn = this.querySelector('#feed-am');
+    const feedPmBtn = this.querySelector('#feed-pm');
+    
+    console.log('Fed buttons found:', { feedAmBtn: !!feedAmBtn, feedPmBtn: !!feedPmBtn });
+    
+    feedAmBtn?.addEventListener('click', () => {
+      console.log('Fed AM button clicked via event listener');
+      this.markFed('AM');
+    });
+    
+    feedPmBtn?.addEventListener('click', () => {
+      console.log('Fed PM button clicked via event listener');
+      this.markFed('PM');
+    });
     
     const editBtn = this.querySelector('#edit-btn');
     const modal = this.querySelector('#edit-modal');
@@ -302,7 +383,6 @@ class CatProfile extends HTMLElement {
         gender: formData.get('gender'),
         vaccinations: formData.get('vaccinations'),
         spayNeuter: formData.get('spayNeuter') === 'on',
-        lastFed: formData.get('lastFed'),
         healthNotes: formData.get('healthNotes')
       };
       
@@ -314,6 +394,24 @@ class CatProfile extends HTMLElement {
       successMsg.textContent = '✓ Cat profile updated successfully!';
       document.body.appendChild(successMsg);
       setTimeout(() => successMsg.remove(), 3000);
+    });
+    
+    const deleteBtn = this.querySelector('#delete-btn');
+    deleteBtn?.addEventListener('click', async () => {
+      const modal = document.getElementById('modal');
+      const confirmed = await modal.showConfirm(
+        'Delete Cat Profile',
+        `Are you sure you want to delete "${this.cat.name}"? This action cannot be undone and will remove all associated photos and activity logs.`,
+        {
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          confirmStyle: 'background: var(--danger);'
+        }
+      );
+      
+      if (confirmed) {
+        await this.deleteCat();
+      }
     });
   }
 }

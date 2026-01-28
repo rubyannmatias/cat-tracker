@@ -33,8 +33,8 @@ describe('Authentication API', () => {
   describe('POST /api/auth/register', () => {
     test('should register new user successfully', async () => {
       const newUser = {
+        username: 'newuser',
         name: 'Test User',
-        email: 'newuser@example.com',
         password: 'password123'
       };
       
@@ -45,7 +45,7 @@ describe('Authentication API', () => {
       
       // Mock database queries
       mockDb.prepare.mockReturnValue({
-        get: jest.fn().mockReturnValue(null), // Email not found
+        get: jest.fn().mockReturnValue(null), // Username not found
         run: jest.fn().mockReturnValue({ lastInsertRowid: 1 })
       });
       
@@ -55,27 +55,27 @@ describe('Authentication API', () => {
         .expect(201);
       
       expect(response.body).toHaveProperty('token');
+      expect(response.body.user).toHaveProperty('username', newUser.username);
       expect(response.body.user).toHaveProperty('name', newUser.name);
-      expect(response.body.user).toHaveProperty('email', newUser.email);
       expect(response.body.user).not.toHaveProperty('password');
     });
 
-    test('should return 400 for duplicate email', async () => {
+    test('should return 409 for duplicate username', async () => {
       const existingUser = {
+        username: 'testuser',
         name: 'Test User',
-        email: 'test@example.com',
         password: 'password123'
       };
       
-      // Mock database to find existing email
+      // Mock database to find existing username
       mockDb.prepare.mockReturnValue({
-        get: jest.fn().mockReturnValue({ id: 1, email: 'test@example.com' })
+        get: jest.fn().mockReturnValue({ id: 1, username: 'testuser' })
       });
       
       const response = await request(app)
         .post('/api/auth/register')
         .send(existingUser)
-        .expect(400);
+        .expect(409);
       
       expect(response.body.error).toContain('already exists');
     });
@@ -83,18 +83,7 @@ describe('Authentication API', () => {
     test('should return 400 for missing required fields', async () => {
       await request(app)
         .post('/api/auth/register')
-        .send({ name: 'Test' }) // Missing email and password
-        .expect(400);
-    });
-
-    test('should return 400 for invalid email', async () => {
-      await request(app)
-        .post('/api/auth/register')
-        .send({
-          name: 'Test User',
-          email: 'invalid-email',
-          password: 'password123'
-        })
+        .send({ name: 'Test' }) // Missing username and password
         .expect(400);
     });
 
@@ -102,11 +91,37 @@ describe('Authentication API', () => {
       await request(app)
         .post('/api/auth/register')
         .send({
+          username: 'testuser',
           name: 'Test User',
-          email: 'test@example.com',
           password: '123' // Too short
         })
         .expect(400);
+    });
+
+    test('should register user with optional email', async () => {
+      const newUser = {
+        username: 'emailuser',
+        name: 'Test User',
+        email: 'test@example.com',
+        password: 'password123'
+      };
+      
+      // Reset users to avoid conflicts
+      await request(app)
+        .post('/api/auth/reset')
+        .expect(200);
+      
+      mockDb.prepare.mockReturnValue({
+        get: jest.fn().mockReturnValue(null),
+        run: jest.fn().mockReturnValue({ lastInsertRowid: 1 })
+      });
+      
+      const response = await request(app)
+        .post('/api/auth/register')
+        .send(newUser)
+        .expect(201);
+      
+      expect(response.body.user).toHaveProperty('email', newUser.email);
     });
   });
 
@@ -118,27 +133,28 @@ describe('Authentication API', () => {
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue({
           id: 1,
+          username: 'testuser',
           name: 'Test User',
           email: 'test@example.com',
-          password: hashedPassword
+          password_hash: hashedPassword
         })
       });
       
       const response = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          username: 'testuser',
           password: 'password123'
         })
         .expect(200);
       
       expect(response.body).toHaveProperty('token');
+      expect(response.body.user).toHaveProperty('username', 'testuser');
       expect(response.body.user).toHaveProperty('name', 'Test User');
-      expect(response.body.user).toHaveProperty('email', 'test@example.com');
-      expect(response.body.user).not.toHaveProperty('password');
+      expect(response.body.user).not.toHaveProperty('password_hash');
     });
 
-    test('should return 401 for invalid email', async () => {
+    test('should return 401 for invalid username', async () => {
       // Mock database to not find user
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue(null)
@@ -147,29 +163,29 @@ describe('Authentication API', () => {
       await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'nonexistent@example.com',
+          username: 'nonexistent',
           password: 'password123'
         })
         .expect(401);
     });
 
     test('should return 401 for invalid password', async () => {
-      const hashedPassword = await bcrypt.hash('password123', 10);
+      const hashedPassword = await bcrypt.hash('correctpassword', 10);
       
       // Mock database to find user
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue({
           id: 1,
+          username: 'testuser',
           name: 'Test User',
-          email: 'test@example.com',
-          password: hashedPassword
+          password_hash: hashedPassword
         })
       });
       
       await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          username: 'testuser',
           password: 'wrongpassword'
         })
         .expect(401);
@@ -178,18 +194,23 @@ describe('Authentication API', () => {
     test('should return 400 for missing fields', async () => {
       await request(app)
         .post('/api/auth/login')
-        .send({ email: 'test@example.com' }) // Missing password
+        .send({ username: 'testuser' }) // Missing password
         .expect(400);
     });
 
-    test('should return 400 for invalid email format', async () => {
+    test('should return 401 for non-existent user', async () => {
+      // Mock database to not find user
+      mockDb.prepare.mockReturnValue({
+        get: jest.fn().mockReturnValue(null)
+      });
+      
       await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'invalid-email',
+          username: 'nonexistent',
           password: 'password123'
         })
-        .expect(400);
+        .expect(401);
     });
   });
 
@@ -199,6 +220,7 @@ describe('Authentication API', () => {
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue({
           id: 1,
+          username: 'testuser',
           name: 'Test User',
           email: 'test@example.com'
         })
@@ -209,16 +231,17 @@ describe('Authentication API', () => {
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue({
           id: 1,
+          username: 'testuser',
           name: 'Test User',
           email: 'test@example.com',
-          password: hashedPassword
+          password_hash: hashedPassword
         })
       });
       
       const loginResponse = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          username: 'testuser',
           password: 'password123'
         });
       
@@ -271,16 +294,17 @@ describe('Authentication API', () => {
       mockDb.prepare.mockReturnValue({
         get: jest.fn().mockReturnValue({
           id: 1,
+          username: 'testuser',
           name: 'Test User',
           email: 'test@example.com',
-          password: hashedPassword
+          password_hash: hashedPassword
         })
       });
       
       const loginResponse = await request(app)
         .post('/api/auth/login')
         .send({
-          email: 'test@example.com',
+          username: 'testuser',
           password: 'password123'
         });
       
@@ -293,7 +317,7 @@ describe('Authentication API', () => {
         .expect(200);
       
       expect(profileResponse.body).toHaveProperty('name', 'Test User');
-      expect(profileResponse.body).toHaveProperty('email', 'test@example.com');
+      expect(profileResponse.body).toHaveProperty('email', null);
       expect(profileResponse.body).not.toHaveProperty('password');
     });
   });

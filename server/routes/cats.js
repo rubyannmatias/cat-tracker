@@ -16,7 +16,7 @@ router.get('/', (req, res) => {
     `).all();
 
     const catsWithPhotos = cats.map(cat => {
-      const photos = db.prepare('SELECT * FROM photos WHERE cat_id = ? ORDER BY date DESC LIMIT 1').all(cat.id);
+      const photos = db.prepare('SELECT * FROM photos WHERE cat_id = ? ORDER BY date DESC').all(cat.id);
       return {
         ...cat,
         spayNeuter: Boolean(cat.spay_neuter),
@@ -39,13 +39,28 @@ router.get('/:id', (req, res) => {
       return res.status(404).json({ error: 'Cat not found' });
     }
 
-    const photos = db.prepare('SELECT * FROM photos WHERE cat_id = ? ORDER BY date DESC').all(cat.id);
+    console.log('Fetching cat with ID:', req.params.id);
+    console.log('Cat data:', cat);
 
-    res.json({
+    const photosQuery = 'SELECT * FROM photos WHERE cat_id = ? ORDER BY date DESC';
+    console.log('Running photos query:', photosQuery, 'with cat_id:', cat.id);
+    
+    const photos = db.prepare(photosQuery).all(cat.id);
+    console.log('Photos found for cat:', photos);
+    console.log('Photos count:', photos.length);
+    
+    // Also check all photos in database for debugging
+    const allPhotos = db.prepare('SELECT id, cat_id, url FROM photos ORDER BY id DESC LIMIT 5').all();
+    console.log('Recent photos in database:', allPhotos);
+
+    const responseData = {
       ...cat,
       spayNeuter: Boolean(cat.spay_neuter),
       photos
-    });
+    };
+    
+    console.log('Response data being sent:', responseData);
+    res.json(responseData);
   } catch (error) {
     console.error('Error fetching cat:', error);
     res.status(500).json({ error: 'Failed to fetch cat' });
@@ -55,6 +70,8 @@ router.get('/:id', (req, res) => {
 router.post('/', (req, res) => {
   try {
     const { name, markings, building, gender, spayNeuter, vaccinations, healthNotes, photoId } = req.body;
+    
+    console.log('Cat creation request received:', { name, photoId, spayNeuter, vaccinations });
 
     if (!name) {
       return res.status(400).json({ error: 'Cat name is required' });
@@ -68,16 +85,46 @@ router.post('/', (req, res) => {
     }
 
     const today = new Date().toISOString().split('T')[0];
+    const now = new Date().toISOString();
     const result = db.prepare(`
-      INSERT INTO cats (name, markings, building, gender, spay_neuter, vaccinations, health_notes, last_seen_by, last_seen_date, days_not_seen)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 0)
-    `).run(name.trim(), markings || null, building || null, gender || null, spayNeuter ? 1 : 0, vaccinations || null, healthNotes || null, req.user.name, today);
+      INSERT INTO cats (name, markings, building, gender, spay_neuter, vaccinations, health_notes, last_seen_by, last_seen_date, days_not_seen, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(name.trim(), markings || null, building || null, gender || null, spayNeuter ? 1 : 0, vaccinations || null, healthNotes || null, req.user.name, today, 0, now, now);
+
+    console.log('Database insert result:', result);
+    console.log('Last insert row ID:', result.lastInsertRowid);
 
     if (photoId) {
+      console.log('Assigning photo ID:', photoId, 'to cat ID:', result.lastInsertRowid);
       db.prepare('UPDATE photos SET cat_id = ?, recognized = 1 WHERE id = ?').run(result.lastInsertRowid, photoId);
+      console.log('Photo assignment completed');
+      
+      // Verify the assignment
+      const verifyPhoto = db.prepare('SELECT * FROM photos WHERE id = ?').get(photoId);
+      console.log('Verification - Photo after assignment:', verifyPhoto);
+      
+      // Also verify by querying cat photos
+      const catPhotos = db.prepare('SELECT * FROM photos WHERE cat_id = ?').all(result.lastInsertRowid);
+      console.log('Verification - All photos for cat:', catPhotos);
+    } else {
+      console.log('No photoId provided for cat creation');
     }
 
     const cat = db.prepare('SELECT * FROM cats WHERE id = ?').get(result.lastInsertRowid);
+    
+    console.log('Cat created:', cat);
+    console.log('User ID:', req.user?.id);
+    console.log('Cat ID:', cat?.id);
+
+    if (!req.user?.id) {
+      console.error('User ID is missing from request');
+      return res.status(401).json({ error: 'User authentication required' });
+    }
+    
+    if (!cat?.id) {
+      console.error('Cat ID is missing after creation');
+      return res.status(500).json({ error: 'Failed to create cat record' });
+    }
 
     db.prepare('INSERT INTO activity_log (volunteer_id, cat_id, action) VALUES (?, ?, ?)').run(
       req.user.id,
@@ -97,7 +144,7 @@ router.post('/', (req, res) => {
 
 router.put('/:id', (req, res) => {
   try {
-    const { name, markings, building, gender, spayNeuter, vaccinations, lastFed, lastSeenBy, daysNotSeen, healthNotes } = req.body;
+    const { name, markings, building, gender, spayNeuter, vaccinations, lastSeenBy, daysNotSeen, healthNotes, lastFed } = req.body;
     
     const cat = db.prepare('SELECT * FROM cats WHERE id = ?').get(req.params.id);
     if (!cat) {
@@ -127,8 +174,7 @@ router.put('/:id', (req, res) => {
     if (lastSeenBy !== undefined) { 
       updates.push('last_seen_by = ?'); 
       values.push(lastSeenBy);
-      updates.push('last_seen_date = ?');
-      values.push(new Date().toISOString().split('T')[0]);
+      // Note: last_seen_date is only updated by feeding, not by profile edits
     }
     if (daysNotSeen !== undefined) { updates.push('days_not_seen = ?'); values.push(daysNotSeen); }
 
@@ -160,18 +206,36 @@ router.put('/:id', (req, res) => {
 router.delete('/:id', (req, res) => {
   try {
     const cat = db.prepare('SELECT * FROM cats WHERE id = ?').get(req.params.id);
+    
     if (!cat) {
       return res.status(404).json({ error: 'Cat not found' });
     }
 
-    db.prepare('DELETE FROM cats WHERE id = ?').run(req.params.id);
+    console.log('Deleting cat:', cat.name, '(ID:', cat.id, ')');
 
-    res.json({ message: 'Cat deleted successfully' });
+    // Delete associated photos first
+    const deletedPhotos = db.prepare('DELETE FROM photos WHERE cat_id = ?').run(req.params.id);
+    console.log('Deleted', deletedPhotos.changes, 'photos for cat:', cat.id);
+
+    // Delete activity logs
+    const deletedLogs = db.prepare('DELETE FROM activity_log WHERE cat_id = ?').run(req.params.id);
+    console.log('Deleted', deletedLogs.changes, 'activity logs for cat:', cat.id);
+
+    // Delete the cat
+    const result = db.prepare('DELETE FROM cats WHERE id = ?').run(req.params.id);
+    console.log('Deleted cat, affected rows:', result.changes);
+
+    res.json({ 
+      message: `Cat "${cat.name}" has been deleted successfully`,
+      deletedPhotos: deletedPhotos.changes,
+      deletedLogs: deletedLogs.changes
+    });
   } catch (error) {
     console.error('Error deleting cat:', error);
     res.status(500).json({ error: 'Failed to delete cat' });
   }
 });
+
 
 router.get('/:id/photos', (req, res) => {
   try {

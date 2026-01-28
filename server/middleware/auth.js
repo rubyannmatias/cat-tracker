@@ -1,4 +1,5 @@
 import jwt from 'jsonwebtoken';
+import { db } from '../database/init.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
@@ -14,7 +15,17 @@ export function authenticateToken(req, res, next) {
     if (err) {
       return res.status(403).json({ error: 'Invalid or expired token' });
     }
-    req.user = user;
+    
+    // Check if user still exists in database (handles database reset scenario)
+    const existingUser = db.prepare('SELECT id, username, name FROM volunteers WHERE id = ?').get(user.id);
+    if (!existingUser) {
+      return res.status(401).json({ 
+        error: 'User account not found. Please log in again.',
+        code: 'USER_NOT_FOUND'
+      });
+    }
+    
+    req.user = existingUser;
     next();
   });
 }

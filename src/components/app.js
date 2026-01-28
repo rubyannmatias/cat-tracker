@@ -9,6 +9,36 @@ class CatTrackerApp extends HTMLElement {
     this.checkAuth();
     this.render();
     this.attachEventListeners();
+    this.setupGlobalErrorHandling();
+  }
+
+  setupGlobalErrorHandling() {
+    // Intercept fetch calls to handle authentication errors globally
+    const originalFetch = window.fetch;
+    window.fetch = async (...args) => {
+      try {
+        const response = await originalFetch(...args);
+        
+        // Check if response is an authentication error, but exclude login requests
+        const isLoginRequest = args[0] && args[0].includes('/api/auth/login');
+        
+        if (response.status === 401 && !isLoginRequest) {
+          let errorData = {};
+          try {
+            errorData = await response.json();
+          } catch (e) {
+            // If JSON parsing fails, create a basic error object
+            errorData = { error: 'Authentication failed', code: 'AUTH_ERROR' };
+          }
+          this.handleAuthError(errorData);
+        }
+        
+        return response;
+      } catch (error) {
+        console.error('Fetch error:', error);
+        throw error;
+      }
+    };
   }
 
   checkAuth() {
@@ -43,6 +73,38 @@ class CatTrackerApp extends HTMLElement {
     });
   }
 
+  handleAuthError(error) {
+    console.error('Authentication error detected:', error);
+    console.log('Error code:', error.code);
+    console.log('Error message:', error.error);
+    
+    if (error.code === 'USER_NOT_FOUND') {
+      console.log('User not found - clearing local storage and redirecting to login');
+      // User account was deleted (database reset), clear local storage and redirect to login
+      this.currentUser = null;
+      localStorage.removeItem('authToken');
+      localStorage.removeItem('currentUser');
+      this.currentView = 'login';
+      this.render();
+      
+      // Show user-friendly message
+      const modal = document.getElementById('modal');
+      if (modal) {
+        console.log('Showing modal alert for user not found');
+        modal.showAlert('Session Expired', 'Your user account was not found. Please log in again.')
+          .catch(err => console.error('Modal alert error:', err));
+      }
+    } else {
+      // Handle other authentication errors
+      console.log('Other authentication error, showing generic error message');
+      const modal = document.getElementById('modal');
+      if (modal) {
+        modal.showAlert('Authentication Error', 'Please log in again.')
+          .catch(err => console.error('Modal alert error:', err));
+      }
+    }
+  }
+
   render() {
     if (!this.currentUser) {
       this.innerHTML = `
@@ -59,6 +121,7 @@ class CatTrackerApp extends HTMLElement {
           <h1 style="font-size: 1.5rem; margin: 0;">🐱 Cat Care Community</h1>
           <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
             <span style="font-size: 0.9375rem;">Welcome, ${this.currentUser.name}</span>
+            <button class="btn btn-outline refresh-btn" id="refresh-btn" style="color: white; border-color: white; padding: 0.5rem; font-size: 1rem; min-width: auto; width: 40px; height: 40px;" title="Refresh page">🔄</button>
             <button class="btn btn-outline logout-btn" id="logout-btn" style="color: white; border-color: white;">Logout</button>
           </div>
         </div>
@@ -113,6 +176,10 @@ class CatTrackerApp extends HTMLElement {
 
     this.querySelector('#logout-btn')?.addEventListener('click', () => {
       this.dispatchEvent(new CustomEvent('logout'));
+    });
+
+    this.querySelector('#refresh-btn')?.addEventListener('click', () => {
+      window.location.reload();
     });
 
     this.querySelectorAll('.nav-btn').forEach(btn => {

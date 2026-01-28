@@ -3,11 +3,27 @@ class PhotoUpload extends HTMLElement {
     super();
     this.selectedFile = null;
     this.recognitionResult = null;
+    this.assigned = false;
   }
 
   connectedCallback() {
     this.render();
     // Note: render() calls attachEventListeners() automatically
+  }
+
+  disconnectedCallback() {
+    console.log('=== COMPONENT DISCONNECTED ===');
+    console.log('recognitionResult:', this.recognitionResult);
+    console.log('assigned:', this.assigned);
+    
+    // Clean up unassigned photo if component is destroyed without user making a choice
+    if (this.recognitionResult && this.recognitionResult.photoId && !this.assigned) {
+      console.log('Component disconnected - cleaning up unassigned photo:', this.recognitionResult.photoId);
+      console.log('Assigned status:', this.assigned);
+      this.deleteUnassignedPhoto(this.recognitionResult.photoId);
+    } else {
+      console.log('Component disconnected - no cleanup needed. Assigned:', this.assigned, 'PhotoId:', this.recognitionResult?.photoId);
+    }
   }
 
   attachEventListeners() {
@@ -218,9 +234,16 @@ class PhotoUpload extends HTMLElement {
   }
 
   showRecognitionResult(result) {
+    console.log('=== showRecognitionResult called ===');
+    console.log('Result:', result);
+    console.log('Recognized:', result.recognized);
+    console.log('Matches:', result.matches);
+    console.log('Matches length:', result.matches?.length);
+    
     const statusDiv = this.querySelector('#upload-status');
     
     if (result.recognized && result.matches && result.matches.length > 0) {
+      console.log('Rendering recognition results...');
       statusDiv.innerHTML = `
         <div class="card" style="background: #f0fdf4; border: 2px solid var(--success);">
           <h3 style="color: var(--success); margin-bottom: 1rem;">Cat Recognized!</h3>
@@ -237,8 +260,8 @@ class PhotoUpload extends HTMLElement {
           
           <div style="display: grid; gap: 1rem;">
             ${result.matches.map(cat => `
-              <div class="card" style="cursor: pointer; border: 2px solid var(--border);" 
-                   data-cat-id="${cat.id}" class="match-option">
+              <div class="card match-option" style="cursor: pointer; border: 2px solid var(--border);" 
+                   data-cat-id="${cat.id}">
                 <div style="display: flex; gap: 1rem; align-items: center; flex-wrap: wrap;">
                   ${cat.photos && cat.photos[0] ? `
                     <img src="${cat.photos[0].url}" alt="${cat.name}" 
@@ -264,12 +287,70 @@ class PhotoUpload extends HTMLElement {
           </div>
         </div>
       `;
-
-      this.querySelectorAll('.match-option').forEach(option => {
-        option.addEventListener('click', async () => {
+      
+      // Use event delegation instead of direct listeners
+      console.log('Setting up event delegation for match options...');
+      
+      // Add click listener to the parent container
+      this.addEventListener('click', async (e) => {
+        console.log('Click detected on:', {
+          target: e.target,
+          targetClass: e.target.className,
+          targetTag: e.target.tagName,
+          parentElement: e.target.parentElement,
+          parentClass: e.target.parentElement?.className
+        });
+        
+        const matchOption = e.target.closest('.match-option');
+        console.log('Closest match-option:', matchOption);
+        
+        if (matchOption) {
+          console.log('Match option clicked via delegation!', {
+            target: e.target,
+            matchOption: matchOption,
+            catId: matchOption.dataset.catId,
+            dataset: matchOption.dataset
+          });
+          e.preventDefault();
+          e.stopPropagation();
+          const catId = matchOption.dataset.catId;
+          await this.assignPhotoToCat(catId);
+        } else {
+          console.log('Click was not on a match option');
+        }
+      });
+      
+      // Add visual debugging to match options
+      const matchOptions = this.querySelectorAll('.match-option');
+      console.log('Found match options:', matchOptions.length);
+      
+      matchOptions.forEach((option, index) => {
+        console.log(`Option ${index}:`, {
+          element: option,
+          catId: option.dataset.catId,
+          classList: option.className
+        });
+        
+        // Add visual indicator
+        option.style.border = '2px solid red';
+        option.style.cursor = 'pointer';
+        option.title = `Click to assign to cat (ID: ${option.dataset.catId})`;
+        
+        // Also try direct click listener as backup
+        option.addEventListener('click', async (e) => {
+          console.log('Direct click listener triggered!', {
+            target: e.target,
+            catId: option.dataset.catId,
+            index: index
+          });
+          e.preventDefault();
+          e.stopPropagation();
           const catId = option.dataset.catId;
           await this.assignPhotoToCat(catId);
         });
+        
+        // Add onclick attribute as another test
+        option.setAttribute('onclick', `console.log('onclick triggered! Cat ID: ${option.dataset.catId}');`);
       });
 
       this.querySelector('#new-cat-btn')?.addEventListener('click', () => {
@@ -287,7 +368,9 @@ class PhotoUpload extends HTMLElement {
   async assignPhotoToCat(catId) {
     try {
       const token = localStorage.getItem('authToken');
-      const response = await fetch(`/api/photos/${this.recognitionResult.photoId}/assign`, {
+      const photoId = this.recognitionResult.photoId;
+      
+      const response = await fetch(`/api/photos/${photoId}/assign`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -297,18 +380,30 @@ class PhotoUpload extends HTMLElement {
       });
 
       if (response.ok) {
+        this.assigned = true; // Mark as assigned to prevent cleanup
         const modal = document.getElementById('modal');
         await modal.showAlert('Success', 'Photo assigned successfully!');
         this.reset();
+      } else {
+        const error = await response.json();
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Assignment Failed', error.error || 'Failed to assign photo');
       }
     } catch (error) {
       console.error('Error assigning photo:', error);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Assignment Failed', 'Network error occurred while assigning photo');
     }
   }
 
   showNewCatForm() {
     const statusDiv = this.querySelector('#upload-status');
     const photoUrl = this.recognitionResult?.photoUrl;
+    
+    console.log('=== showNewCatForm called ===');
+    console.log('Recognition result:', this.recognitionResult);
+    console.log('Photo URL:', photoUrl);
+    console.log('Photo ID:', this.recognitionResult?.photoId);
     
     statusDiv.innerHTML = `
       <div class="card" style="background: #fef3c7; border: 2px solid var(--warning); max-height: 80vh; overflow-y: auto;">
@@ -383,7 +478,8 @@ class PhotoUpload extends HTMLElement {
     this.querySelector('#new-cat-form')?.addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
-      await this.createNewCat({
+      
+      const catData = {
         name: formData.get('name'),
         markings: formData.get('markings'),
         building: formData.get('building'),
@@ -392,7 +488,12 @@ class PhotoUpload extends HTMLElement {
         healthNotes: formData.get('healthNotes'),
         spayNeuter: formData.get('spayNeuter') === 'on',
         photoId: this.recognitionResult.photoId
-      });
+      };
+      
+      console.log('Creating cat with data:', catData);
+      console.log('Recognition result photoId:', this.recognitionResult.photoId);
+      
+      await this.createNewCat(catData);
     });
 
     this.querySelector('#save-unrecognized-btn-form')?.addEventListener('click', async () => {
@@ -401,38 +502,126 @@ class PhotoUpload extends HTMLElement {
   }
 
   async saveAsUnrecognized() {
-    const modal = document.getElementById('modal');
-    await modal.showAlert('Photo Saved', 'Photo saved as unrecognized. You can categorize it later from the Unrecognized tab.');
-    this.reset();
+    try {
+      console.log('Saving photo as unrecognized:', this.recognitionResult?.photoId);
+      
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/photos/${this.recognitionResult.photoId}/unrecognized`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        this.assigned = true; // Mark as assigned to prevent cleanup
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Photo Saved', 'Photo saved as unrecognized. You can categorize it later from the Unrecognized tab.');
+        this.reset();
+      } else {
+        const error = await response.json();
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Save Failed', error.error || 'Failed to save photo as unrecognized');
+      }
+    } catch (error) {
+      console.error('Error saving photo as unrecognized:', error);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Save Failed', 'Network error occurred while saving photo');
+    }
   }
 
   async createNewCat(catData) {
     try {
+      console.log('Creating new cat with data:', catData);
       const token = localStorage.getItem('authToken');
+      console.log('Token found:', !!token);
+      
+      const requestBody = JSON.stringify(catData);
+      console.log('Request body being sent:', requestBody);
+      
       const response = await fetch('/api/cats', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(catData)
+        body: requestBody
       });
 
+      console.log('Cat creation response status:', response.status);
+      console.log('Response ok:', response.ok);
+
       if (response.ok) {
+        // Mark photo as assigned to prevent cleanup
+        this.assigned = true;
+        console.log('Photo marked as assigned:', this.recognitionResult?.photoId);
+        
         const modal = document.getElementById('modal');
         await modal.showAlert('Success', 'New cat profile created successfully!');
-        this.reset();
+        
+        // Add a small delay before reset to ensure assignment is processed
+        setTimeout(() => {
+          this.reset();
+        }, 100);
+      } else {
+        const errorData = await response.json();
+        console.error('Cat creation failed:', errorData);
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Failed to create cat', errorData.error || 'Unknown error occurred');
       }
     } catch (error) {
       console.error('Error creating cat:', error);
+      console.error('Error stack:', error.stack);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Failed to create cat', 'Network error: ' + error.message);
     }
   }
 
   reset() {
+    console.log('=== RESET CALLED ===');
+    console.log('recognitionResult:', this.recognitionResult);
+    console.log('assigned:', this.assigned);
+    console.log('photoId:', this.recognitionResult?.photoId);
+    
+    // Clean up unassigned photo if user navigates away without making a choice
+    if (this.recognitionResult && this.recognitionResult.photoId && !this.assigned) {
+      console.log('Cleaning up unassigned photo:', this.recognitionResult.photoId);
+      this.deleteUnassignedPhoto(this.recognitionResult.photoId);
+    } else {
+      console.log('Photo is assigned or no recognition result - no cleanup needed');
+    }
+    
     this.selectedFile = null;
     this.recognitionResult = null;
+    this.assigned = false;
     this.render();
     // Note: render() now calls attachEventListeners() automatically
+  }
+
+  async deleteUnassignedPhoto(photoId) {
+    try {
+      console.log('Attempting to delete unassigned photo:', photoId);
+      const token = localStorage.getItem('authToken');
+      console.log('Token found:', !!token);
+      
+      const response = await fetch(`/api/photos/${photoId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      console.log('Delete response status:', response.status);
+      console.log('Delete response ok:', response.ok);
+      
+      if (response.ok) {
+        console.log('Unassigned photo deleted successfully:', photoId);
+      } else {
+        const error = await response.json();
+        console.error('Failed to delete photo:', error);
+      }
+    } catch (error) {
+      console.error('Error deleting unassigned photo:', error);
+    }
   }
 
   render() {

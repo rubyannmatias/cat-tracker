@@ -137,7 +137,7 @@ function isCatImage(predictions) {
   
   // Must have at least one cat prediction with decent confidence
   const maxCatConfidence = Math.max(...catPredictions.map(p => p.probability));
-  return maxCatConfidence > 0.4;
+  return maxCatConfidence > 0.3;
 }
 
 export async function recognizeCat(imagePath) {
@@ -189,7 +189,7 @@ export async function recognizeCat(imagePath) {
         
         const confidence = (featureSimilarity * 0.6) + (colorSimilarity * 0.4);
         
-        if (confidence > 0.6) {
+        if (confidence > 0.4) {
           matches.push({
             id: cat.id,
             name: cat.name,

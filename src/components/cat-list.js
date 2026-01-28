@@ -172,7 +172,7 @@ class CatList extends HTMLElement {
         <td style="padding: 1rem; color: ${feedingDisplay.color}; font-weight: 600; white-space: nowrap;">${feedingDisplay.text}</td>
         <td style="padding: 1rem;">${cat.last_seen_by || '-'}</td>
         <td style="padding: 1rem; color: ${statusColor}; font-weight: 600;">${daysNotSeen}</td>
-        <td style="padding: 1rem;">${cat.photos?.length || 0}</td>
+        <td style="padding: 1rem;">${cat.photo_count || 0}</td>
       </tr>
     `;
   }
@@ -246,9 +246,38 @@ class CatList extends HTMLElement {
   renderCatCard(cat) {
     const daysNotSeen = cat.daysNotSeen || 0;
     const statusBadge = daysNotSeen === 0 ? 'badge-success' : daysNotSeen < 3 ? 'badge-warning' : 'badge-error';
-    // Show primary photo first, or fallback to first photo
-    const primaryPhoto = cat.photos && cat.photos.find(p => p.is_primary);
-    const lastPhoto = primaryPhoto || (cat.photos && cat.photos.length > 0 ? cat.photos[0] : null);
+    // Show primary photo first, or fallback to latest (first in array)
+    let primaryPhoto = null;
+    if (cat.photos && cat.photos.length > 0) {
+      console.log('=== DEBUGGING PRIMARY PHOTO ===');
+      console.log(`Cat "${cat.name}" (ID: ${cat.id}) has ${cat.photos.length} photos`);
+      console.log('Full cat object:', cat);
+      cat.photos.forEach((photo, index) => {
+        console.log(`Photo ${index}: id=${photo.id}, is_primary=${photo.is_primary} (${typeof photo.is_primary})`);
+      });
+      
+      // Use explicit for loop instead of find() method
+      for (let i = 0; i < cat.photos.length; i++) {
+        const photo = cat.photos[i];
+        console.log(`Checking photo ${i}: is_primary=${photo.is_primary}, comparison result: ${photo.is_primary === 1}`);
+        if (photo.is_primary === 1) {
+          primaryPhoto = photo;
+          console.log('Found primary photo at index', i, 'Setting primaryPhoto:', primaryPhoto);
+          break;
+        }
+      }
+      
+      console.log('Primary photo loop result:', primaryPhoto);
+      
+      // If no primary photo found, use the latest photo (first in array since ordered by date DESC)
+      if (!primaryPhoto) {
+        primaryPhoto = cat.photos[0]; // Latest photo
+        console.log('No primary photo found, using latest photo');
+      }
+    }
+    const lastPhoto = primaryPhoto || null;
+    
+    console.log('Final result: using photo', lastPhoto ? `id: ${lastPhoto.id}` : 'none');
 
     return `
       <div class="card cat-card" data-cat-id="${cat.id}" style="cursor: pointer; transition: transform 0.2s;">

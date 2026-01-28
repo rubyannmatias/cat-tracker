@@ -14,7 +14,7 @@ A Progressive Web App (PWA) to support a cat care community, enabling volunteers
 - **AI/ML**: 
   - TensorFlow.js with MobileNet - Cat image classification and feature extraction
   - Hybrid recognition: Visual features + color matching
-- **Authentication**: JWT tokens (name/email based, no passwords)
+- **Authentication**: JWT tokens with bcrypt password hashing
 - **File Upload**: Multer for multipart/form-data handling
 - **Deployment**: Ready for Railway, Vercel, Netlify, or similar platforms
 
@@ -57,7 +57,7 @@ Each cat profile includes:
 
 ### 3. Photo Management ✅ IMPLEMENTED
 - **Photo Limit**: Configurable via environment variable (MAX_PHOTOS_PER_CAT, default: 7)
-- **Photo Viewer**: Swipeable photo gallery on cat profile page
+- **Photo Viewer**: Swipeable photo gallery with primary photo first on profile page
 - **Storage**: Photos stored in `/uploads` directory with unique UUIDs
 - **Primary Photo Selection**: 
   - ✅ Set any photo as primary for each cat
@@ -65,10 +65,11 @@ Each cat profile includes:
   - ✅ "Set as Primary" button on non-primary photos
   - ✅ Cat cards show primary photo first, fallback to latest
   - ✅ Only one primary photo per cat (auto-management)
-- **Deletion**: 
+- **Photo Management**: 
   - ✅ Delete unrecognized photos (with confirmation)
   - ✅ Delete photos from cat profile with confirmation
   - ✅ Physical file deletion when photo record is deleted
+  - ✅ Full-screen photo viewer with clean interface
   - ⏳ Automatic rotation when limit exceeded (not yet implemented)
 
 ### 4. Unrecognized Cat Workflow ✅ IMPLEMENTED
@@ -77,6 +78,7 @@ Each cat profile includes:
 - **Actions Available**:
   - **Assign to Cat**: Search existing cats by name and assign photo
   - **Create New Profile**: Create new cat profile directly from unrecognized photo with all metadata fields
+  - **Save as Unrecognized**: Properly save photos as unrecognized with API integration
   - **Delete Photo**: Remove unrecognized photo with confirmation
 - **Search**: Name-based search with dropdown for easy cat selection
 - **Metadata Display**: Shows upload date, uploader, and OCR text (if any)
@@ -101,7 +103,7 @@ Each cat profile includes:
 
 ### 6. PWA Features ✅ IMPLEMENTED
 - **Installable**: PWA manifest configured for mobile and desktop installation
-- **Service Worker**: Vite PWA plugin with auto-update
+- **Service Worker**: Vite PWA plugin with auto-update with custom modal prompts
 - **Offline Support**: 
   - ✅ Static assets cached
   - ✅ App shell available offline
@@ -115,14 +117,21 @@ Each cat profile includes:
   - Horizontal scrolling tables with smooth touch scrolling
   - HEIC support for iPhone users (auto-conversion)
 - **Icons**: PWA icons (192x192, 512x512) configured
+- **Custom Modals**: Consistent modal dialogs for confirmations and alerts
+- **Refresh Button**: Cute refresh button (🔄) in header for PWA mobile view compatibility
 - ⏳ **Push Notifications**: Not yet implemented
 
 ### 7. Volunteer & Community Features ✅ IMPLEMENTED
-- **Authentication**: 
-  - ✅ Name and email based registration (no password required)
+- **Secure Authentication**: 
+  - ✅ Username and password-based login (replaced insecure email system)
+  - ✅ bcrypt password hashing (10 rounds)
   - ✅ JWT token-based authentication
-  - ✅ Auto-registration for new volunteers
-  - ✅ Profile updates on login
+  - ✅ User registration with validation (username, password, name required)
+  - ✅ Password change functionality
+  - ✅ Unique username enforcement (case-sensitive)
+  - ✅ Optional email field with validation
+  - ✅ Comprehensive backend tests for authentication
+  - ✅ Migration from old email-based system
   - ⏳ Social login (not implemented)
   - ⏳ Anonymous access codes (not implemented)
 - **Activity Tracking**:
@@ -133,17 +142,21 @@ Each cat profile includes:
 - **Notes**: 
   - ✅ Health notes per cat (dedicated field)
   - ⏳ General commenting system (not implemented)
+- **Cat Management**:
+  - ✅ Delete cat profile with confirmation
+  - ✅ Cascading deletion of photos and activity logs
+  - ✅ Proper cleanup of associated data
 
 ## Data Model (Implemented)
 - **Cat**: id, name, markings, gender, spayNeuter, vaccinations, health_notes, building, lastSeenBy, last_seen_date, lastFed, daysNotSeen, created_at
 - **Photo**: id, cat_id, url, date, uploader, recognized (bool), ocr_text, is_primary (bool)
-- **Volunteer**: id, name, email, created_at
+- **Volunteer**: id, username, password_hash, name, email, created_at
 - **Activity Log**: id, volunteer_id, action, cat_id, timestamp
 
 **Database**: SQLite with better-sqlite3 (synchronous, fast, no external server needed)
 **Migrations**: Automatic schema updates on server start for new columns
 
-## Storage & Cleanup Plan ⚠️ PARTIALLY IMPLEMENTED
+## Storage & Cleanup Plan ✅ IMPLEMENTED
 - **Photo Storage**: 
   - ✅ Local filesystem (`/uploads` directory)
   - ✅ Unique UUID filenames to prevent conflicts
@@ -153,9 +166,15 @@ Each cat profile includes:
   - ✅ Configurable via MAX_PHOTOS_PER_CAT environment variable
   - ⏳ Automatic enforcement (not implemented)
   - ⏳ User selection prompt (not implemented)
-- **Cleanup**:
+- **Database Cleanup**:
+  - ✅ Automatic cleanup on server startup (orphaned photos, activities)
+  - ✅ Fix duplicate primary photo flags
+  - ✅ Update statistics and metadata
+  - ✅ Optional database reset via RESET_DB environment variable
+- **Photo Cleanup**:
   - ✅ Manual deletion of unrecognized photos
   - ✅ Physical file deletion when photo record is deleted
+  - ✅ Automatic cleanup of unassigned photos on navigation away
   - ⏳ Automatic expiration of unrecognized photos (not implemented)
   - ⏳ Automatic rotation of old photos (not implemented)
 
@@ -164,7 +183,12 @@ Each cat profile includes:
 - **Documentation**: 
   - ✅ DEPLOYMENT.md with step-by-step guides
   - ✅ SETUP.md for local development
+  - ✅ Railway-specific deployment guide (railway-deployment.md)
   - ✅ Environment variable configuration (.env.example)
+- **Production Features**:
+  - ✅ Database reset for clean deployments
+  - ✅ Automatic cleanup on startup
+  - ✅ Railway deployment with environment variables
 - **Requirements**:
   - Node.js 18+
   - SQLite database (file-based, no external server)
@@ -186,18 +210,35 @@ Each cat profile includes:
   - Comprehensive table with all metadata, horizontal scroll on mobile
   - **Color-coded feeding times**: 🌅 AM (amber) and 🌆 PM (blue) with legend
   - **Easy-to-read single column** for feeding status
+  - **Accurate photo counts** using backend aggregation (photo_count field)
 - **Primary Photo Management**: 
   - Set any photo as primary for each cat
   - Primary photo badge (⭐ Primary) in photo swiper
-  - Cat cards display primary photo first
+  - Grid View displays primary photo first, fallback to latest
+  - Profile View starts swiper at primary photo
   - Auto-management ensures only one primary per cat
 - **Mobile File Selection**: Fixed mobile gallery access (removed camera-only restriction)
 - **Error Handling**: User-friendly error messages with reporting information
 - **Unique Names**: Cat names must be unique (case-insensitive validation)
-- **Daily Updates**: Automatic daily update of days_not_seen counter
+- **Daily Updates**: Automatic daily update of days_not_seen counter with detailed logging
 - **Responsive Design**: Mobile-first design with touch-optimized UI
 - **HEIC Support**: Full support for iPhone photos with client-side conversion
 - **AI Recognition Improvements**: Enhanced cat detection with better breed keywords and confidence thresholds
+- **Photo Upload Improvements**:
+  - ✅ Clickable match options for cat assignment
+  - ✅ Automatic cleanup of unassigned photos with proper assignment flag
+  - ✅ Loading states for better UX feedback
+  - ✅ Proper recognition status updates in database
+  - ✅ Fixed photo assignment persistence
+- **Full Photo Viewer**:
+  - ✅ Click photo or fullscreen button for full-screen view
+  - ✅ Clean interface without non-working navigation
+  - ✅ Easy close options (X button or background click)
+  - ✅ Photo information display (primary status, position)
+- **UI/UX Enhancements**:
+  - ✅ Custom modal dialogs for consistent user experience
+  - ✅ Loading indicators for async operations
+  - ✅ Improved error messages with detailed reporting
 
 ## Stretch Goals (Not Yet Implemented)
 - ⏳ Mobile push notifications

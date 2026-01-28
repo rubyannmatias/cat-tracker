@@ -161,6 +161,13 @@ router.post('/upload', upload.single('photo'), handleUploadError, async (req, re
       console.error('Recognition stack:', error.stack);
     }
 
+    // Update photo record if recognition found matches
+    if (matches.length > 0) {
+      console.log('Updating photo record to recognized...');
+      db.prepare('UPDATE photos SET recognized = 1 WHERE id = ?').run(photoId);
+      console.log('Photo marked as recognized');
+    }
+
     console.log('Sending response...');
     res.json({
       photoId,
@@ -305,6 +312,24 @@ router.get('/unrecognized', (req, res) => {
   } catch (error) {
     console.error('Error fetching unrecognized photos:', error);
     res.status(500).json({ error: 'Failed to fetch unrecognized photos' });
+  }
+});
+
+router.post('/:id/unrecognized', (req, res) => {
+  try {
+    const photoId = req.params.id;
+    
+    console.log('Marking photo as unrecognized:', photoId);
+    
+    // Update photo to be unrecognized and unassigned
+    db.prepare('UPDATE photos SET recognized = 0, cat_id = NULL WHERE id = ?').run(photoId);
+    
+    console.log('Photo marked as unrecognized successfully');
+    
+    res.json({ message: 'Photo marked as unrecognized successfully' });
+  } catch (error) {
+    console.error('Error marking photo as unrecognized:', error);
+    res.status(500).json({ error: 'Failed to mark photo as unrecognized' });
   }
 });
 

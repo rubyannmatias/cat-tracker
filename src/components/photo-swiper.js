@@ -20,6 +20,16 @@ class PhotoSwiper extends HTMLElement {
       
       if (response.ok) {
         this.photos = await response.json();
+        
+        // Find primary photo and set it as current index
+        const primaryPhotoIndex = this.photos.findIndex(p => p.is_primary === 1 || p.is_primary === true);
+        if (primaryPhotoIndex !== -1) {
+          this.currentIndex = primaryPhotoIndex;
+          console.log(`Found primary photo at index ${primaryPhotoIndex}`);
+        } else {
+          this.currentIndex = 0; // Default to first photo if no primary found
+          console.log('No primary photo found, using first photo');
+        }
       }
     } catch (error) {
       console.error('Error loading photos:', error);
@@ -106,7 +116,8 @@ class PhotoSwiper extends HTMLElement {
     this.innerHTML = `
       <div style="position: relative;">
         <img src="${currentPhoto.url}" alt="Cat photo" 
-             style="width: 100%; height: 300px; object-fit: cover; border-radius: 0.5rem;">
+             style="width: 100%; height: 300px; object-fit: cover; border-radius: 0.5rem; cursor: pointer;"
+             id="main-photo">
         
         <div style="position: absolute; top: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem;">
           ${this.currentIndex + 1} / ${this.photos.length}
@@ -129,6 +140,11 @@ class PhotoSwiper extends HTMLElement {
             ›
           </button>
         ` : ''}
+        
+        <button style="position: absolute; bottom: 0.5rem; right: 0.5rem; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.2rem;" 
+                id="fullscreen-btn" title="View full size">
+          ⛶
+        </button>
       </div>
       
       <div style="margin-top: 1rem;">
@@ -163,6 +179,49 @@ class PhotoSwiper extends HTMLElement {
     this.querySelector('#next-btn')?.addEventListener('click', () => this.nextPhoto());
     this.querySelector('#delete-btn')?.addEventListener('click', () => this.deletePhoto(currentPhoto.id));
     this.querySelector('#set-primary-btn')?.addEventListener('click', () => this.setPrimaryPhoto(currentPhoto.id));
+    this.querySelector('#fullscreen-btn')?.addEventListener('click', () => this.showFullscreen(currentPhoto));
+    this.querySelector('#main-photo')?.addEventListener('click', () => this.showFullscreen(currentPhoto));
+  }
+
+  showFullscreen(photo) {
+    const fullscreenDiv = document.createElement('div');
+    fullscreenDiv.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      cursor: pointer;
+    `;
+    
+    fullscreenDiv.innerHTML = `
+      <div style="position: relative; max-width: 90vw; max-height: 90vh;">
+        <img src="${photo.url}" alt="Full size cat photo" 
+             style="max-width: 100%; max-height: 90vh; object-fit: contain; border-radius: 0.5rem;">
+        
+        <button style="position: absolute; top: 1rem; right: 1rem; background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.5rem;"
+                onclick="this.parentElement.parentElement.remove()">
+          ✕
+        </button>
+        
+        <div style="position: absolute; bottom: 1rem; left: 1rem; background: rgba(0,0,0,0.7); color: white; padding: 0.5rem 1rem; border-radius: 0.5rem; font-size: 0.875rem;">
+          ${photo.is_primary ? '⭐ Primary Photo' : 'Photo ' + (this.currentIndex + 1) + ' of ' + this.photos.length}
+        </div>
+      </div>
+    `;
+    
+    fullscreenDiv.addEventListener('click', (e) => {
+      if (e.target === fullscreenDiv) {
+        fullscreenDiv.remove();
+      }
+    });
+    
+    document.body.appendChild(fullscreenDiv);
   }
 }
 

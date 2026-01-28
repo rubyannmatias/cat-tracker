@@ -81,6 +81,15 @@ body {
   background-color: var(--primary-dark);
 }
 
+.btn-danger {
+  background-color: var(--error);
+  color: white;
+}
+
+.btn-danger:hover {
+  background-color: #dc2626;
+}
+
 .btn-secondary {
   background-color: var(--secondary-color);
   color: white;
