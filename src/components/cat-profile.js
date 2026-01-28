@@ -25,8 +25,13 @@ class CatProfile extends HTMLElement {
     }
   }
 
-  async updateCat(updates) {
+  async updateCat(updates, showLoading = true) {
     try {
+      // Show immediate loading feedback
+      if (showLoading) {
+        this.showLoadingState();
+      }
+      
       const token = localStorage.getItem('authToken');
       const response = await fetch(`/api/cats/${this.cat.id}`, {
         method: 'PUT',
@@ -39,10 +44,25 @@ class CatProfile extends HTMLElement {
       
       if (response.ok) {
         this.cat = await response.json();
-        this.render();
+        // Only re-render what's necessary
+        if (updates.lastFed) {
+          this.updateFeedingStatus();
+        } else {
+          this.render();
+        }
+      } else {
+        const error = await response.json();
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Update Failed', error.error || 'Failed to update cat');
       }
     } catch (error) {
       console.error('Error updating cat:', error);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Update Failed', 'Network error occurred while updating cat');
+    } finally {
+      if (showLoading) {
+        this.hideLoadingState();
+      }
     }
   }
 
@@ -53,6 +73,40 @@ class CatProfile extends HTMLElement {
       lastSeenBy: user.name,
       daysNotSeen: 0
     });
+  }
+
+  showLoadingState() {
+    const feedButtons = this.querySelectorAll('#feed-am, #feed-pm');
+    feedButtons.forEach(btn => {
+      btn.disabled = true;
+      btn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin: 0 auto;"></div>';
+    });
+  }
+
+  hideLoadingState() {
+    const feedButtons = this.querySelectorAll('#feed-am, #feed-pm');
+    feedButtons.forEach(btn => {
+      btn.disabled = false;
+      btn.innerHTML = btn.id === 'feed-am' ? '✓ Fed AM' : '✓ Fed PM';
+    });
+  }
+
+  updateFeedingStatus() {
+    const feedingDiv = this.querySelector('[style*="background: var(--background)"]');
+    if (feedingDiv) {
+      feedingDiv.innerHTML = `
+        <h3 style="font-size: 1rem; margin-bottom: 0.75rem;">🍽️ Feeding Status</h3>
+        ${this.renderFeedingStatus()}
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.75rem;">
+          <button class="btn btn-primary" id="feed-am" style="flex: 1;">✓ Fed AM</button>
+          <button class="btn btn-primary" id="feed-pm" style="flex: 1;">✓ Fed PM</button>
+        </div>
+      `;
+      
+      // Re-attach event listeners
+      this.querySelector('#feed-am')?.addEventListener('click', () => this.markFed('AM'));
+      this.querySelector('#feed-pm')?.addEventListener('click', () => this.markFed('PM'));
+    }
   }
 
   renderFeedingStatus() {

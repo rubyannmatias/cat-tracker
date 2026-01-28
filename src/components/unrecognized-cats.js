@@ -43,6 +43,9 @@ class UnrecognizedCats extends HTMLElement {
 
   async assignToCat(photoId, catName) {
     try {
+      // Show loading state on the photo card
+      this.showPhotoLoading(photoId, 'Assigning...');
+      
       const token = localStorage.getItem('authToken');
       const response = await fetch(`/api/photos/${photoId}/assign-by-name`, {
         method: 'POST',
@@ -62,11 +65,31 @@ class UnrecognizedCats extends HTMLElement {
         const error = await response.json();
         const modal = document.getElementById('modal');
         await modal.showAlert('Error', error.error || 'Failed to assign photo');
+        this.hidePhotoLoading(photoId);
       }
     } catch (error) {
       console.error('Error assigning photo:', error);
       const modal = document.getElementById('modal');
       await modal.showAlert('Error', 'Failed to assign photo. Please try again.');
+      this.hidePhotoLoading(photoId);
+    }
+  }
+
+  showPhotoLoading(photoId, message) {
+    const photoCard = this.querySelector(`[data-photo-id="${photoId}"]`).closest('.card');
+    if (photoCard) {
+      const buttons = photoCard.querySelectorAll('button');
+      buttons.forEach(btn => {
+        btn.disabled = true;
+        btn.innerHTML = message;
+      });
+    }
+  }
+
+  hidePhotoLoading(photoId) {
+    const photoCard = this.querySelector(`[data-photo-id="${photoId}"]`).closest('.card');
+    if (photoCard) {
+      this.render(); // Re-render to restore original buttons
     }
   }
 
@@ -144,6 +167,12 @@ class UnrecognizedCats extends HTMLElement {
     modal.querySelector('#new-cat-form-modal').addEventListener('submit', async (e) => {
       e.preventDefault();
       const formData = new FormData(e.target);
+      const submitBtn = modal.querySelector('button[type="submit"]');
+      const originalText = submitBtn.innerHTML;
+      
+      // Show loading state
+      submitBtn.disabled = true;
+      submitBtn.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; margin: 0 auto;"></div>';
       
       try {
         const token = localStorage.getItem('authToken');
@@ -180,6 +209,10 @@ class UnrecognizedCats extends HTMLElement {
         console.error('Error creating cat:', error);
         const modalDialog = document.getElementById('modal');
         await modalDialog.showAlert('Error', 'Failed to create cat profile. Please try again.');
+      } finally {
+        // Restore button state
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalText;
       }
     });
   }
