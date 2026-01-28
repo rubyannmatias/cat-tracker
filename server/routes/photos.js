@@ -8,6 +8,7 @@ import { db } from '../database/init.js';
 import { authenticateToken } from '../middleware/auth.js';
 import { recognizeCat } from '../services/recognition.js';
 import { extractTextFromImage } from '../services/ocr.js';
+import heicConvert from 'heic-convert';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -33,59 +34,154 @@ const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowedTypes = /jpeg|jpg|png|gif|webp/;
-    const extname = allowedTypes.test(path.extname(file.originalname).toLowerCase());
-    const mimetype = allowedTypes.test(file.mimetype);
+    const allowedExtensions = /\.(jpeg|jpg|png|gif|webp|heic|heif)$/i;
+    const extname = allowedExtensions.test(file.originalname.toLowerCase());
     
-    if (extname && mimetype) {
+    // Check MIME type - be permissive for HEIC since browsers often send wrong MIME
+    const allowedMimeTypes = /^image\/(jpeg|jpg|png|gif|webp|heic|heif)$/i;
+    const validMime = allowedMimeTypes.test(file.mimetype) || 
+                      file.mimetype === 'image/heic' || 
+                      file.mimetype === 'image/heif' ||
+                      file.mimetype === 'application/octet-stream'; // HEIC often comes as this
+    
+    // Accept if extension is valid OR if both extension and mime are acceptable
+    if (extname) {
+      console.log(`File accepted: ${file.originalname} (${file.mimetype})`);
       cb(null, true);
     } else {
-      cb(new Error('Only image files are allowed'));
+      console.log(`File rejected: ${file.originalname} (${file.mimetype})`);
+      cb(new Error(`Only image files are allowed. Received: ${file.originalname}`));
     }
   }
 });
 
 router.use(authenticateToken);
 
-router.post('/upload', upload.single('photo'), async (req, res) => {
+// Error handling middleware for multer
+const handleUploadError = (err, req, res, next) => {
+  console.error('=== MULTER ERROR ===');
+  console.error('Error:', err.message);
+  console.error('Stack:', err.stack);
+  
+  if (err instanceof multer.MulterError) {
+    return res.status(400).json({ error: `Upload error: ${err.message}` });
+  } else if (err) {
+    return res.status(400).json({ error: err.message });
+  }
+  next();
+};
+
+router.post('/upload', upload.single('photo'), handleUploadError, async (req, res) => {
+  console.log('=== PHOTO UPLOAD REQUEST RECEIVED ===');
   try {
+    console.log('Request file:', req.file ? {
+      filename: req.file.filename,
+      originalname: req.file.originalname,
+      mimetype: req.file.mimetype,
+      size: req.file.size,
+      path: req.file.path
+    } : 'NO FILE');
+    
     if (!req.file) {
+      console.error('ERROR: No file in request');
       return res.status(400).json({ error: 'No photo uploaded' });
     }
 
-    const photoUrl = `/uploads/${req.file.filename}`;
-    const photoPath = req.file.path;
+    let photoUrl = `/uploads/${req.file.filename}`;
+    let photoPath = req.file.path;
+    console.log('Photo URL:', photoUrl);
+    console.log('Photo path:', photoPath);
 
-    let ocrText = null;
-    try {
-      ocrText = await extractTextFromImage(photoPath);
-    } catch (error) {
-      console.error('OCR error:', error);
+    // Convert HEIC to JPG if needed (server-side)
+    const isHEIC = /\.(heic|heif)$/i.test(req.file.originalname);
+    console.log('HEIC detection:', {
+      filename: req.file.originalname,
+      isHEIC: isHEIC
+    });
+    
+    if (isHEIC) {
+      try {
+        console.log('Converting HEIC to JPG on server...');
+        const inputBuffer = await fs.promises.readFile(photoPath);
+        const outputBuffer = await heicConvert({
+          buffer: inputBuffer,
+          format: 'JPEG',
+          quality: 0.9
+        });
+        
+        // Create new filename with .jpg extension
+        const jpgFilename = req.file.filename.replace(/\.(heic|heif)$/i, '.jpg');
+        const jpgPath = path.join(uploadDir, jpgFilename);
+        
+        // Write converted file
+        await fs.promises.writeFile(jpgPath, outputBuffer);
+        console.log('HEIC converted to JPG:', jpgFilename);
+        
+        // Delete original HEIC file
+        await fs.promises.unlink(photoPath);
+        console.log('Original HEIC file deleted');
+        
+        // Update paths to use JPG
+        photoPath = jpgPath;
+        photoUrl = `/uploads/${jpgFilename}`;
+      } catch (conversionError) {
+        console.error('HEIC conversion error:', conversionError);
+        throw new Error('Failed to convert HEIC image: ' + conversionError.message);
+      }
     }
 
+    let ocrText = null;
+    
+    try {
+      console.log('Starting OCR...');
+      ocrText = await extractTextFromImage(photoPath);
+      console.log('OCR completed:', ocrText ? 'text found' : 'no text');
+    } catch (error) {
+      console.error('OCR error:', error.message);
+      // Don't crash on OCR errors, just skip OCR
+      console.log('Continuing without OCR due to error');
+    }
+
+    console.log('Inserting photo into database...');
     const result = db.prepare(`
       INSERT INTO photos (url, uploader, recognized, ocr_text)
       VALUES (?, ?, 0, ?)
     `).run(photoUrl, req.user.name, ocrText);
 
     const photoId = result.lastInsertRowid;
+    console.log('Photo inserted with ID:', photoId);
 
     let matches = [];
     try {
+      console.log('Starting cat recognition...');
       matches = await recognizeCat(photoPath);
+      console.log('Recognition completed, matches:', matches.length);
     } catch (error) {
-      console.error('Recognition error:', error);
+      console.error('Recognition error:', error.message);
+      console.error('Recognition stack:', error.stack);
     }
 
+    console.log('Sending response...');
     res.json({
       photoId,
+      photoUrl,
       recognized: matches.length > 0,
       matches,
       ocrText
     });
+    console.log('=== UPLOAD COMPLETED SUCCESSFULLY ===');
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({ error: 'Failed to upload photo' });
+    console.error('=== UPLOAD ERROR ===');
+    console.error('Error:', error.message);
+    console.error('Stack:', error.stack);
+    
+    // Ensure we always send JSON response
+    if (!res.headersSent) {
+      return res.status(500).json({ 
+        error: 'Failed to upload photo: ' + error.message,
+        details: process.env.NODE_ENV === 'development' ? error.stack : undefined
+      });
+    }
   }
 });
 
@@ -199,11 +295,45 @@ router.post('/:id/assign', (req, res) => {
 
 router.get('/unrecognized', (req, res) => {
   try {
-    const photos = db.prepare('SELECT * FROM photos WHERE recognized = 0 ORDER BY date DESC').all();
+    const photos = db.prepare(`
+      SELECT * FROM photos 
+      WHERE recognized = 0 AND cat_id IS NULL
+      ORDER BY date DESC
+    `).all();
+    
     res.json(photos);
   } catch (error) {
     console.error('Error fetching unrecognized photos:', error);
     res.status(500).json({ error: 'Failed to fetch unrecognized photos' });
+  }
+});
+
+router.delete('/unrecognized/:id', (req, res) => {
+  try {
+    const photoId = req.params.id;
+    
+    // Get photo details before deleting
+    const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(photoId);
+    
+    if (!photo) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+    
+    // Delete the physical file
+    const filePath = path.join(__dirname, '../..', photo.url);
+    if (fs.existsSync(filePath)) {
+      fs.unlinkSync(filePath);
+      console.log('Deleted file:', filePath);
+    }
+    
+    // Delete from database
+    db.prepare('DELETE FROM photos WHERE id = ?').run(photoId);
+    console.log('Deleted photo from database:', photoId);
+    
+    res.json({ message: 'Photo deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting photo:', error);
+    res.status(500).json({ error: 'Failed to delete photo' });
   }
 });
 
@@ -214,7 +344,8 @@ router.delete('/:id', (req, res) => {
     if (!photo) {
       return res.status(404).json({ error: 'Photo not found' });
     }
-
+    
+    // Delete the physical file
     const filePath = path.join(__dirname, '../..', photo.url);
     if (fs.existsSync(filePath)) {
       fs.unlinkSync(filePath);

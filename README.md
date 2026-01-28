@@ -29,7 +29,7 @@ A Progressive Web App (PWA) to support a cat care community, enabling volunteers
 - **`vite-plugin-pwa`** (^0.17.4) - PWA plugin for Vite, generates service workers and manifest
 
 #### UI Components
-- **`@hcl-software/enchanted-web-components`** (^1.0.0) - Modern web components library for consistent UI
+- **Vanilla Web Components** - Custom web components built from scratch for the app's UI
 
 ### Backend Dependencies
 

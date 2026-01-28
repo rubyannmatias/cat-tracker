@@ -54,18 +54,18 @@ class CatTrackerApp extends HTMLElement {
     }
 
     this.innerHTML = `
-      <header style="background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 2rem;">
-        <div class="container" style="display: flex; justify-content: space-between; align-items: center;">
-          <h1 style="font-size: 1.5rem;">🐱 Cat Care Community</h1>
-          <div style="display: flex; gap: 1rem; align-items: center;">
-            <span>Welcome, ${this.currentUser.name}</span>
-            <button class="btn btn-outline" id="logout-btn" style="color: white; border-color: white;">Logout</button>
+      <header style="background: var(--primary-color); color: white; padding: 1rem 0; margin-bottom: 1.5rem;">
+        <div class="container header-container" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.75rem;">
+          <h1 style="font-size: 1.5rem; margin: 0;">🐱 Cat Care Community</h1>
+          <div style="display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;">
+            <span style="font-size: 0.9375rem;">Welcome, ${this.currentUser.name}</span>
+            <button class="btn btn-outline logout-btn" id="logout-btn" style="color: white; border-color: white;">Logout</button>
           </div>
         </div>
       </header>
       
       <div class="container">
-        <nav style="display: flex; gap: 1rem; margin-bottom: 2rem; border-bottom: 2px solid var(--border); padding-bottom: 1rem;">
+        <nav style="display: flex; gap: 0.5rem; margin-bottom: 1.5rem; border-bottom: 2px solid var(--border); padding-bottom: 0.5rem; overflow-x: auto; -webkit-overflow-scrolling: touch;">
           <button class="nav-btn ${this.currentView === 'cats' ? 'active' : ''}" data-view="cats">All Cats</button>
           <button class="nav-btn ${this.currentView === 'upload' ? 'active' : ''}" data-view="upload">Upload Photo</button>
           <button class="nav-btn ${this.currentView === 'unrecognized' ? 'active' : ''}" data-view="unrecognized">Unrecognized</button>
@@ -78,7 +78,7 @@ class CatTrackerApp extends HTMLElement {
       
       <style>
         .nav-btn {
-          padding: 0.5rem 1rem;
+          padding: 0.75rem 1.25rem;
           border: none;
           background: transparent;
           cursor: pointer;
@@ -87,6 +87,10 @@ class CatTrackerApp extends HTMLElement {
           color: var(--text-secondary);
           border-bottom: 2px solid transparent;
           transition: all 0.2s;
+          white-space: nowrap;
+          min-height: 44px;
+          touch-action: manipulation;
+          -webkit-tap-highlight-color: transparent;
         }
         
         .nav-btn:hover {
@@ -96,6 +100,13 @@ class CatTrackerApp extends HTMLElement {
         .nav-btn.active {
           color: var(--primary-color);
           border-bottom-color: var(--primary-color);
+        }
+
+        @media (max-width: 640px) {
+          .nav-btn {
+            font-size: 0.9375rem;
+            padding: 0.625rem 1rem;
+          }
         }
       </style>
     `;

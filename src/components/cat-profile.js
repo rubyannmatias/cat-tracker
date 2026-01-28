@@ -97,7 +97,7 @@ class CatProfile extends HTMLElement {
 
     this.innerHTML = `
       <div class="card">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+        <div class="cat-profile-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
           <div>
             <h2 style="margin-bottom: 1rem;">${this.cat.name}</h2>
             
@@ -138,15 +138,15 @@ class CatProfile extends HTMLElement {
         </div>
       </div>
       
-      <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 1rem; overflow-y: auto;">
-        <div class="card" style="max-width: 700px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <div id="edit-modal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 0.5rem; overflow-y: auto;">
+        <div class="card" style="max-width: 700px; margin: 1rem auto; max-height: 95vh; overflow-y: auto;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
             <h3 style="margin: 0;">Edit Cat Metadata</h3>
-            <button type="button" id="close-modal" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+            <button type="button" id="close-modal" style="background: none; border: none; font-size: 2rem; cursor: pointer; color: var(--text-secondary); padding: 0; min-width: 44px; min-height: 44px; touch-action: manipulation;">×</button>
           </div>
           
           <form id="edit-form">
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+            <div class="edit-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
               <div style="grid-column: 1 / -1;">
                 <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Cat Name *</label>
                 <input type="text" name="name" class="input" value="${this.cat.name}" required placeholder="e.g., Whiskers">

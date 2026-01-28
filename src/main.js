@@ -6,6 +6,7 @@ import './components/photo-upload.js';
 import './components/photo-swiper.js';
 import './components/volunteer-login.js';
 import './components/unrecognized-cats.js';
+import './components/modal-dialog.js';
 import { registerSW } from 'virtual:pwa-register';
 
 const updateSW = registerSW({

@@ -54,16 +54,19 @@ class UnrecognizedCats extends HTMLElement {
       });
 
       if (response.ok) {
-        alert('Photo assigned successfully!');
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Success', 'Photo assigned successfully!');
         this.photos = this.photos.filter(p => p.id !== photoId);
         this.render();
       } else {
         const error = await response.json();
-        alert(error.error || 'Failed to assign photo');
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Error', error.error || 'Failed to assign photo');
       }
     } catch (error) {
       console.error('Error assigning photo:', error);
-      alert('Failed to assign photo');
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Error', 'Failed to assign photo. Please try again.');
     }
   }
 
@@ -73,10 +76,10 @@ class UnrecognizedCats extends HTMLElement {
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; padding: 1rem; overflow-y: auto;';
     
     modal.innerHTML = `
-      <div class="card" style="max-width: 700px; margin: 2rem auto; max-height: 90vh; overflow-y: auto;">
+      <div class="card" style="max-width: 700px; margin: 1rem auto; max-height: 95vh; overflow-y: auto;">
         <h3 style="margin-bottom: 1rem;">Create New Cat Profile</h3>
         <form id="new-cat-form-modal">
-          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+          <div class="edit-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
             <div style="grid-column: 1 / -1;">
               <label style="display: block; font-weight: 600; margin-bottom: 0.5rem;">Cat Name *</label>
               <input type="text" name="name" class="input" required placeholder="e.g., Whiskers">
@@ -163,17 +166,20 @@ class UnrecognizedCats extends HTMLElement {
         });
         
         if (response.ok) {
-          alert('Cat profile created successfully!');
+          const modalDialog = document.getElementById('modal');
+          await modalDialog.showAlert('Success', 'Cat profile created successfully!');
           modal.remove();
           this.photos = this.photos.filter(p => p.id !== photoId);
           this.render();
         } else {
           const error = await response.json();
-          alert(error.error || 'Failed to create cat profile');
+          const modalDialog = document.getElementById('modal');
+          await modalDialog.showAlert('Error', error.error || 'Failed to create cat profile');
         }
       } catch (error) {
         console.error('Error creating cat:', error);
-        alert('Failed to create cat profile');
+        const modalDialog = document.getElementById('modal');
+        await modalDialog.showAlert('Error', 'Failed to create cat profile. Please try again.');
       }
     });
   }
@@ -184,7 +190,7 @@ class UnrecognizedCats extends HTMLElement {
     modal.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 1rem;';
     
     modal.innerHTML = `
-      <div class="card" style="max-width: 500px; width: 100%;">
+      <div class="card" style="max-width: 500px; width: 100%; margin: 1rem;">
         <h3 style="margin-bottom: 1rem;">Assign to Cat</h3>
         <p style="color: var(--text-secondary); margin-bottom: 1rem;">Search and select a cat to assign this photo to:</p>
         
@@ -272,6 +278,51 @@ class UnrecognizedCats extends HTMLElement {
         await this.createNewCatFromPhoto(photoId);
       });
     });
+
+    this.querySelectorAll('.delete-btn').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const photoId = parseInt(btn.dataset.photoId);
+        const photo = this.photos.find(p => p.id === photoId);
+        
+        const modal = document.getElementById('modal');
+        const confirmed = await modal.showConfirm(
+          '🗑️ Delete Photo?',
+          `Are you sure you want to delete this unrecognized photo?\n\nUploaded: ${new Date(photo.date).toLocaleDateString()}\nBy: ${photo.uploader || 'Unknown'}\n\nThis action cannot be undone.`,
+          { confirmText: 'Delete', cancelText: 'Cancel', danger: true }
+        );
+        
+        if (confirmed) {
+          await this.deletePhoto(photoId);
+        }
+      });
+    });
+  }
+
+  async deletePhoto(photoId) {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/photos/${photoId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (response.ok) {
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Success', 'Photo deleted successfully!');
+        this.photos = this.photos.filter(p => p.id !== photoId);
+        this.render();
+      } else {
+        const error = await response.json();
+        const modal = document.getElementById('modal');
+        await modal.showAlert('Error', `Failed to delete photo: ${error.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting photo:', error);
+      const modal = document.getElementById('modal');
+      await modal.showAlert('Error', 'Failed to delete photo. Please try again.');
+    }
   }
 
   renderPhotoCard(photo) {
@@ -296,7 +347,7 @@ class UnrecognizedCats extends HTMLElement {
           </p>
         ` : ''}
         
-        <div style="display: flex; gap: 0.5rem;">
+        <div style="display: flex; gap: 0.5rem; margin-bottom: 0.5rem;">
           <button class="btn btn-primary assign-btn" data-photo-id="${photo.id}" style="flex: 1;">
             Assign to Cat
           </button>
@@ -304,6 +355,9 @@ class UnrecognizedCats extends HTMLElement {
             Create New Profile
           </button>
         </div>
+        <button class="btn btn-outline delete-btn" data-photo-id="${photo.id}" style="width: 100%; color: var(--error); border-color: var(--error);">
+          🗑️ Delete Photo
+        </button>
       </div>
     `;
   }

@@ -46,19 +46,19 @@ class CatList extends HTMLElement {
     }
 
     this.innerHTML = `
-      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; flex-wrap: wrap; gap: 1rem;">
-        <h2>All Cats (${this.cats.length})</h2>
-        <div style="display: flex; gap: 1rem; align-items: center;">
-          <div style="display: flex; gap: 0.5rem; background: var(--surface); border-radius: 0.5rem; padding: 0.25rem;">
-            <button class="view-toggle ${this.viewMode === 'grid' ? 'active' : ''}" data-view="grid" style="padding: 0.5rem 1rem; border: none; background: ${this.viewMode === 'grid' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'grid' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500;">
+      <div style="margin-bottom: 1.5rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; flex-wrap: wrap; gap: 0.75rem;">
+          <h2 style="margin: 0;">All Cats (${this.cats.length})</h2>
+          <div style="display: flex; gap: 0.5rem; background: var(--surface); border-radius: 0.5rem; padding: 0.25rem; box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);">
+            <button class="view-toggle ${this.viewMode === 'grid' ? 'active' : ''}" data-view="grid" style="padding: 0.625rem 1rem; border: none; background: ${this.viewMode === 'grid' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'grid' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">
               📱 Grid
             </button>
-            <button class="view-toggle ${this.viewMode === 'table' ? 'active' : ''}" data-view="table" style="padding: 0.5rem 1rem; border: none; background: ${this.viewMode === 'table' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'table' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500;">
+            <button class="view-toggle ${this.viewMode === 'table' ? 'active' : ''}" data-view="table" style="padding: 0.625rem 1rem; border: none; background: ${this.viewMode === 'table' ? 'var(--primary-color)' : 'transparent'}; color: ${this.viewMode === 'table' ? 'white' : 'var(--text-primary)'}; border-radius: 0.25rem; cursor: pointer; font-weight: 500; min-height: 44px; touch-action: manipulation; -webkit-tap-highlight-color: transparent; transition: all 0.2s;">
               📊 Table
             </button>
           </div>
-          <input type="text" id="search" class="input" placeholder="Search cats..." style="max-width: 300px; margin: 0;">
         </div>
+        <input type="text" id="search" class="input" placeholder="Search cats..." style="margin: 0; width: 100%;">
       </div>
       
       <div id="cats-container">
@@ -101,19 +101,19 @@ class CatList extends HTMLElement {
 
   renderTableView() {
     return `
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <table style="width: 100%; min-width: 800px; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
           <thead>
             <tr style="background: var(--primary-color); color: white;">
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Markings</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Gender</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Building</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Spay/Neuter</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Fed</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Seen</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Days Not Seen</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Photos</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Name</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Markings</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Gender</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Building</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Spay/Neuter</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Last Fed</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Last Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Days Not Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Photos</th>
             </tr>
           </thead>
           <tbody>
@@ -173,19 +173,19 @@ class CatList extends HTMLElement {
 
   renderTableViewFiltered(cats) {
     return `
-      <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
+      <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <table style="width: 100%; min-width: 800px; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
           <thead>
             <tr style="background: var(--primary-color); color: white;">
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Name</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Markings</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Gender</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Building</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Spay/Neuter</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Fed</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Last Seen</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Days Not Seen</th>
-              <th style="padding: 1rem; text-align: left; font-weight: 600;">Photos</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Name</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Markings</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Gender</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Building</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Spay/Neuter</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Last Fed</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Last Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Days Not Seen</th>
+              <th style="padding: 1rem; text-align: left; font-weight: 600; white-space: nowrap;">Photos</th>
             </tr>
           </thead>
           <tbody>

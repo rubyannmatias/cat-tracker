@@ -35,6 +35,12 @@ body {
   padding: 1rem;
 }
 
+@media (max-width: 640px) {
+  .container {
+    padding: 0.75rem;
+  }
+}
+
 .btn {
   padding: 0.75rem 1.5rem;
   border: none;
@@ -45,7 +51,25 @@ body {
   transition: all 0.2s;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
+  min-height: 44px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+@media (max-width: 640px) {
+  .btn {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
+    width: 100%;
+  }
+
+  .logout-btn {
+    width: auto !important;
+    padding: 0.5rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
 }
 
 .btn-primary {
@@ -76,6 +100,13 @@ body {
   margin-bottom: 1rem;
 }
 
+@media (max-width: 640px) {
+  .card {
+    padding: 1rem;
+    border-radius: 0.5rem;
+  }
+}
+
 .input {
   width: 100%;
   padding: 0.75rem;
@@ -83,6 +114,23 @@ body {
   border-radius: 0.5rem;
   font-size: 1rem;
   margin-bottom: 1rem;
+  min-height: 44px;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+@media (max-width: 640px) {
+  .input {
+    font-size: 16px;
+  }
+
+  textarea.input {
+    font-size: 16px;
+  }
+
+  select.input {
+    font-size: 16px;
+  }
 }
 
 .input:focus {
@@ -120,6 +168,17 @@ body {
   to { transform: rotate(360deg); }
 }
 
+@keyframes modalSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .badge {
   display: inline-block;
   padding: 0.25rem 0.75rem;
@@ -148,20 +207,69 @@ body {
 }
 
 @media (max-width: 768px) {
-  .container {
-    padding: 0.5rem;
-  }
-  
   .grid-2 {
     grid-template-columns: 1fr;
   }
   
   table {
-    font-size: 0.875rem;
+    font-size: 0.8125rem;
   }
   
   table th,
   table td {
-    padding: 0.5rem !important;
+    padding: 0.625rem !important;
+  }
+
+  h1 {
+    font-size: 1.25rem !important;
+  }
+
+  h2 {
+    font-size: 1.125rem !important;
+  }
+
+  h3 {
+    font-size: 1rem !important;
+  }
+}
+
+@media (max-width: 640px) {
+  body {
+    font-size: 0.9375rem;
+  }
+
+  .badge {
+    font-size: 0.8125rem;
+    padding: 0.1875rem 0.625rem;
+  }
+
+  .cat-profile-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+
+  .edit-form-grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  .edit-form-grid > div {
+    grid-column: 1 / -1 !important;
+  }
+
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  button, a {
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  * {
+    -webkit-touch-callout: none;
+  }
+
+  input[type="file"] {
+    font-size: 16px;
   }
 }
