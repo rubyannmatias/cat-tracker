@@ -27,7 +27,15 @@ class PhotoSwiper extends HTMLElement {
   }
 
   async deletePhoto(photoId) {
-    if (!confirm('Delete this photo?')) return;
+    const modal = document.getElementById('modal');
+    const result = await modal.showConfirm(
+      'Delete Photo',
+      'Are you sure you want to delete this photo? This action cannot be undone.',
+      'Delete',
+      'danger'
+    );
+    
+    if (!result) return;
 
     try {
       const token = localStorage.getItem('authToken');
@@ -42,9 +50,34 @@ class PhotoSwiper extends HTMLElement {
           this.currentIndex = Math.max(0, this.photos.length - 1);
         }
         this.render();
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        await modal.showAlert('Delete Failed', errorData.error || 'Failed to delete photo');
       }
     } catch (error) {
       console.error('Error deleting photo:', error);
+      await modal.showAlert('Delete Failed', 'Network error occurred while deleting photo');
+    }
+  }
+
+  async setPrimaryPhoto(photoId) {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/photos/${photoId}/set-primary`, {
+        method: 'PATCH',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      
+      if (response.ok) {
+        // Update all photos to reflect new primary status
+        this.photos = this.photos.map(p => ({
+          ...p,
+          is_primary: p.id === photoId ? 1 : 0
+        }));
+        this.render();
+      }
+    } catch (error) {
+      console.error('Error setting primary photo:', error);
     }
   }
 
@@ -79,6 +112,12 @@ class PhotoSwiper extends HTMLElement {
           ${this.currentIndex + 1} / ${this.photos.length}
         </div>
         
+        ${currentPhoto.is_primary ? `
+          <div style="position: absolute; top: 0.5rem; left: 0.5rem; background: var(--primary-color); color: white; padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.875rem; font-weight: 600;">
+            ⭐ Primary
+          </div>
+        ` : ''}
+        
         ${this.photos.length > 1 ? `
           <button style="position: absolute; left: 0.5rem; top: 50%; transform: translateY(-50%); background: rgba(0,0,0,0.7); color: white; border: none; border-radius: 50%; width: 40px; height: 40px; cursor: pointer; font-size: 1.5rem;" 
                   id="prev-btn" ${this.currentIndex === 0 ? 'disabled' : ''}>
@@ -107,15 +146,23 @@ class PhotoSwiper extends HTMLElement {
           </p>
         ` : ''}
         
-        <button class="btn btn-outline" id="delete-btn" style="margin-top: 0.5rem; color: var(--error); border-color: var(--error);">
-          🗑️ Delete Photo
-        </button>
+        <div style="display: flex; gap: 0.5rem; margin-top: 0.5rem;">
+          ${!currentPhoto.is_primary ? `
+            <button class="btn btn-primary" id="set-primary-btn" style="flex: 1;">
+              ⭐ Set as Primary
+            </button>
+          ` : ''}
+          <button class="btn btn-outline" id="delete-btn" style="flex: 1; color: var(--error); border-color: var(--error);">
+            🗑️ Delete Photo
+          </button>
+        </div>
       </div>
     `;
 
     this.querySelector('#prev-btn')?.addEventListener('click', () => this.prevPhoto());
     this.querySelector('#next-btn')?.addEventListener('click', () => this.nextPhoto());
     this.querySelector('#delete-btn')?.addEventListener('click', () => this.deletePhoto(currentPhoto.id));
+    this.querySelector('#set-primary-btn')?.addEventListener('click', () => this.setPrimaryPhoto(currentPhoto.id));
   }
 }
 

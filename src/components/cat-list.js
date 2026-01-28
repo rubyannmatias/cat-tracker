@@ -102,6 +102,19 @@ class CatList extends HTMLElement {
   renderTableView() {
     return `
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <!-- Feeding Time Legend -->
+        <div style="background: var(--surface); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: #d97706; font-weight: 600;">🌅 AM Feeding</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: #3b82f6; font-weight: 600;">🌆 PM Feeding</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: var(--text-secondary);">No feeding record</span>
+          </div>
+        </div>
+        
         <table style="width: 100%; min-width: 800px; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
           <thead>
             <tr style="background: var(--primary-color); color: white;">
@@ -128,6 +141,27 @@ class CatList extends HTMLElement {
     const daysNotSeen = cat.daysNotSeen || 0;
     const statusColor = daysNotSeen === 0 ? 'var(--success)' : daysNotSeen < 3 ? 'var(--warning)' : 'var(--error)';
     
+    // Parse feeding time for color coding
+    const getFeedingDisplay = (lastFed) => {
+      if (!lastFed) return { text: '-', color: 'var(--text-secondary)' };
+      
+      const fedTime = lastFed.toLowerCase();
+      let color = 'var(--text-secondary)';
+      let displayText = lastFed;
+      
+      if (fedTime.includes('am')) {
+        color = '#d97706'; // Darker amber for better readability
+        displayText = `🌅 ${lastFed}`;
+      } else if (fedTime.includes('pm')) {
+        color = '#3b82f6'; // Blue for PM  
+        displayText = `🌆 ${lastFed}`;
+      }
+      
+      return { text: displayText, color };
+    };
+    
+    const feedingDisplay = getFeedingDisplay(cat.last_fed);
+    
     return `
       <tr class="table-row" data-cat-id="${cat.id}" style="border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.2s;">
         <td style="padding: 1rem; font-weight: 600;">${cat.name}</td>
@@ -135,7 +169,7 @@ class CatList extends HTMLElement {
         <td style="padding: 1rem;">${cat.gender || '-'}</td>
         <td style="padding: 1rem;">${cat.building || '-'}</td>
         <td style="padding: 1rem;">${cat.spayNeuter ? '✓ Yes' : '✗ No'}</td>
-        <td style="padding: 1rem;">${cat.last_fed || '-'}</td>
+        <td style="padding: 1rem; color: ${feedingDisplay.color}; font-weight: 600; white-space: nowrap;">${feedingDisplay.text}</td>
         <td style="padding: 1rem;">${cat.last_seen_by || '-'}</td>
         <td style="padding: 1rem; color: ${statusColor}; font-weight: 600;">${daysNotSeen}</td>
         <td style="padding: 1rem;">${cat.photos?.length || 0}</td>
@@ -174,6 +208,19 @@ class CatList extends HTMLElement {
   renderTableViewFiltered(cats) {
     return `
       <div style="overflow-x: auto; -webkit-overflow-scrolling: touch; width: 100%;">
+        <!-- Feeding Time Legend -->
+        <div style="background: var(--surface); border-radius: 0.5rem; padding: 1rem; margin-bottom: 1rem; display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.875rem;">
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: #d97706; font-weight: 600;">🌅 AM Feeding</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: #3b82f6; font-weight: 600;">🌆 PM Feeding</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 0.5rem;">
+            <span style="color: var(--text-secondary);">No feeding record</span>
+          </div>
+        </div>
+        
         <table style="width: 100%; min-width: 800px; border-collapse: collapse; background: var(--surface); border-radius: 0.5rem; overflow: hidden;">
           <thead>
             <tr style="background: var(--primary-color); color: white;">
@@ -199,7 +246,9 @@ class CatList extends HTMLElement {
   renderCatCard(cat) {
     const daysNotSeen = cat.daysNotSeen || 0;
     const statusBadge = daysNotSeen === 0 ? 'badge-success' : daysNotSeen < 3 ? 'badge-warning' : 'badge-error';
-    const lastPhoto = cat.photos && cat.photos.length > 0 ? cat.photos[0] : null;
+    // Show primary photo first, or fallback to first photo
+    const primaryPhoto = cat.photos && cat.photos.find(p => p.is_primary);
+    const lastPhoto = primaryPhoto || (cat.photos && cat.photos.length > 0 ? cat.photos[0] : null);
 
     return `
       <div class="card cat-card" data-cat-id="${cat.id}" style="cursor: pointer; transition: transform 0.2s;">

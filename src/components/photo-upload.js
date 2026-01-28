@@ -443,7 +443,7 @@ class PhotoUpload extends HTMLElement {
         
         <form id="upload-form">
           <div style="border: 2px dashed var(--border); border-radius: 0.75rem; padding: 2rem; text-align: center; margin-bottom: 1rem;">
-            <input type="file" id="photo-input" accept="image/*,image/heic,image/heif,.heic,.heif" capture="environment" 
+            <input type="file" id="photo-input" accept="image/*,image/heic,image/heif,.heic,.heif" 
                    style="display: none;">
             <label for="photo-input" class="btn btn-primary" style="cursor: pointer;">
               📷 Choose Photo

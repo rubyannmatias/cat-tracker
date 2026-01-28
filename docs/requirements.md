@@ -14,9 +14,9 @@ A Progressive Web App (PWA) to support a cat care community, enabling volunteers
 - **AI/ML**: 
   - TensorFlow.js with MobileNet - Cat image classification and feature extraction
   - Hybrid recognition: Visual features + color matching
-- **Authentication**: JWT tokens with bcrypt password hashing
+- **Authentication**: JWT tokens (name/email based, no passwords)
 - **File Upload**: Multer for multipart/form-data handling
-- **Deployment**: Ready for Vercel, Netlify, or similar platforms
+- **Deployment**: Ready for Railway, Vercel, Netlify, or similar platforms
 
 ## Core Features
 ### 1. Cat Photo Upload & Recognition ✅ IMPLEMENTED
@@ -55,14 +55,21 @@ Each cat profile includes:
 - Last seen tracking with automatic days counter
 - Photo swiper for browsing cat photos
 
-### 3. Photo Management ⚠️ PARTIALLY IMPLEMENTED
+### 3. Photo Management ✅ IMPLEMENTED
 - **Photo Limit**: Configurable via environment variable (MAX_PHOTOS_PER_CAT, default: 7)
 - **Photo Viewer**: Swipeable photo gallery on cat profile page
 - **Storage**: Photos stored in `/uploads` directory with unique UUIDs
+- **Primary Photo Selection**: 
+  - ✅ Set any photo as primary for each cat
+  - ✅ Primary photo badge (⭐ Primary) displayed on selected photos
+  - ✅ "Set as Primary" button on non-primary photos
+  - ✅ Cat cards show primary photo first, fallback to latest
+  - ✅ Only one primary photo per cat (auto-management)
 - **Deletion**: 
   - ✅ Delete unrecognized photos (with confirmation)
+  - ✅ Delete photos from cat profile with confirmation
+  - ✅ Physical file deletion when photo record is deleted
   - ⏳ Automatic rotation when limit exceeded (not yet implemented)
-  - ⏳ Manual photo selection/deletion from cat profile (not yet implemented)
 
 ### 4. Unrecognized Cat Workflow ✅ IMPLEMENTED
 - **Storage**: Unrecognized photos stored separately with `recognized = 0` and `cat_id = NULL`
@@ -100,6 +107,7 @@ Each cat profile includes:
   - ✅ App shell available offline
   - ⏳ Photo upload queue (not yet implemented)
   - ⏳ Background sync (not yet implemented)
+- **Mobile File Selection**: Fixed mobile gallery access (users can choose camera or gallery)
 - **Mobile Optimization**:
   - Responsive design with mobile-first approach
   - Touch-optimized buttons (min 44px touch targets)
@@ -109,11 +117,12 @@ Each cat profile includes:
 - **Icons**: PWA icons (192x192, 512x512) configured
 - ⏳ **Push Notifications**: Not yet implemented
 
-### 7. Volunteer & Community Features ✅ PARTIALLY IMPLEMENTED
+### 7. Volunteer & Community Features ✅ IMPLEMENTED
 - **Authentication**: 
-  - ✅ Email/password registration and login
+  - ✅ Name and email based registration (no password required)
   - ✅ JWT token-based authentication
-  - ✅ Secure password hashing with bcrypt
+  - ✅ Auto-registration for new volunteers
+  - ✅ Profile updates on login
   - ⏳ Social login (not implemented)
   - ⏳ Anonymous access codes (not implemented)
 - **Activity Tracking**:
@@ -127,8 +136,8 @@ Each cat profile includes:
 
 ## Data Model (Implemented)
 - **Cat**: id, name, markings, gender, spayNeuter, vaccinations, health_notes, building, lastSeenBy, last_seen_date, lastFed, daysNotSeen, created_at
-- **Photo**: id, cat_id, url, date, uploader, recognized (bool), ocr_text
-- **Volunteer**: id, name, email, password (hashed), created_at
+- **Photo**: id, cat_id, url, date, uploader, recognized (bool), ocr_text, is_primary (bool)
+- **Volunteer**: id, name, email, created_at
 - **Activity Log**: id, volunteer_id, action, cat_id, timestamp
 
 **Database**: SQLite with better-sqlite3 (synchronous, fast, no external server needed)
@@ -173,12 +182,22 @@ Each cat profile includes:
 - **View Modes**: Grid and table view for cat list with toggle
 - **Search & Filter**: Real-time search across cat names, markings, building, gender
 - **Sorting**: Cats sorted by days not seen (most urgent first)
-- **Table View**: Comprehensive table with all metadata, horizontal scroll on mobile
+- **Table View**: 
+  - Comprehensive table with all metadata, horizontal scroll on mobile
+  - **Color-coded feeding times**: 🌅 AM (amber) and 🌆 PM (blue) with legend
+  - **Easy-to-read single column** for feeding status
+- **Primary Photo Management**: 
+  - Set any photo as primary for each cat
+  - Primary photo badge (⭐ Primary) in photo swiper
+  - Cat cards display primary photo first
+  - Auto-management ensures only one primary per cat
+- **Mobile File Selection**: Fixed mobile gallery access (removed camera-only restriction)
 - **Error Handling**: User-friendly error messages with reporting information
 - **Unique Names**: Cat names must be unique (case-insensitive validation)
 - **Daily Updates**: Automatic daily update of days_not_seen counter
 - **Responsive Design**: Mobile-first design with touch-optimized UI
 - **HEIC Support**: Full support for iPhone photos with client-side conversion
+- **AI Recognition Improvements**: Enhanced cat detection with better breed keywords and confidence thresholds
 
 ## Stretch Goals (Not Yet Implemented)
 - ⏳ Mobile push notifications

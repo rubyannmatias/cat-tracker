@@ -116,12 +116,28 @@ function compareColors(colors1, colors2) {
 }
 
 function isCatImage(predictions) {
-  const catKeywords = ['cat', 'tabby', 'persian', 'siamese', 'kitten', 'tiger cat', 'egyptian cat'];
+  const catKeywords = [
+    'tabby', 'persian', 'siamese', 'egyptian cat', 'tiger cat',
+    'siamese cat', 'persian cat', 'tiger cat', 'abyssinian',
+    'bengal', 'birman', 'british shorthair', 'maine coon',
+    'ragdoll', 'russian blue', 'scottish fold', 'sphynx'
+  ];
   
-  return predictions.some(p => {
+  // Look for high-confidence cat predictions
+  const catPredictions = predictions.filter(p => {
     const className = p.className.toLowerCase();
-    return catKeywords.some(keyword => className.includes(keyword));
+    const isCat = catKeywords.some(keyword => className.includes(keyword));
+    const hasHighConfidence = p.probability > 0.3;
+    return isCat && hasHighConfidence;
   });
+  
+  if (catPredictions.length === 0) {
+    return false;
+  }
+  
+  // Must have at least one cat prediction with decent confidence
+  const maxCatConfidence = Math.max(...catPredictions.map(p => p.probability));
+  return maxCatConfidence > 0.4;
 }
 
 export async function recognizeCat(imagePath) {
@@ -129,6 +145,11 @@ export async function recognizeCat(imagePath) {
     console.log('Starting cat recognition...');
     
     const uploadedFeatures = await extractImageFeatures(imagePath);
+    
+    console.log('MobileNet predictions:', uploadedFeatures.map(p => ({
+      className: p.className,
+      probability: p.probability
+    })));
     
     if (!isCatImage(uploadedFeatures)) {
       console.log('Not a cat detected in image');
@@ -168,7 +189,7 @@ export async function recognizeCat(imagePath) {
         
         const confidence = (featureSimilarity * 0.6) + (colorSimilarity * 0.4);
         
-        if (confidence > 0.4) {
+        if (confidence > 0.6) {
           matches.push({
             id: cat.id,
             name: cat.name,

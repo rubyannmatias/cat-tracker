@@ -360,4 +360,34 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+router.patch('/:id/set-primary', (req, res) => {
+  try {
+    const photoId = req.params.id;
+    
+    // Get the photo and verify it exists
+    const photo = db.prepare('SELECT * FROM photos WHERE id = ?').get(photoId);
+    if (!photo) {
+      return res.status(404).json({ error: 'Photo not found' });
+    }
+    
+    // Remove primary status from all other photos for this cat
+    db.prepare('UPDATE photos SET is_primary = 0 WHERE cat_id = ?').run(photo.cat_id);
+    
+    // Set this photo as primary
+    db.prepare('UPDATE photos SET is_primary = 1 WHERE id = ?').run(photoId);
+    
+    // Log the action
+    db.prepare('INSERT INTO activity_log (volunteer_id, cat_id, action) VALUES (?, ?, ?)').run(
+      req.user.id,
+      photo.cat_id,
+      'set_primary_photo'
+    );
+    
+    res.json({ message: 'Primary photo set successfully' });
+  } catch (error) {
+    console.error('Error setting primary photo:', error);
+    res.status(500).json({ error: 'Failed to set primary photo' });
+  }
+});
+
 export default router;

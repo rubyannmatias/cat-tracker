@@ -49,6 +49,7 @@ export function initDatabase() {
       uploader TEXT,
       recognized BOOLEAN DEFAULT 0,
       ocr_text TEXT,
+      is_primary BOOLEAN DEFAULT 0,
       FOREIGN KEY (cat_id) REFERENCES cats(id) ON DELETE CASCADE
     );
 
@@ -70,9 +71,11 @@ export function initDatabase() {
   // Migrations
   try {
     const tableInfo = db.prepare("PRAGMA table_info(cats)").all();
+    const photosTableInfo = db.prepare("PRAGMA table_info(photos)").all();
     const hasLastSeenDate = tableInfo.some(col => col.name === 'last_seen_date');
     const hasHealthNotes = tableInfo.some(col => col.name === 'health_notes');
     const hasGender = tableInfo.some(col => col.name === 'gender');
+    const hasIsPrimary = photosTableInfo.some(col => col.name === 'is_primary');
     
     if (!hasLastSeenDate) {
       console.log('Running migration: Adding last_seen_date column...');
@@ -90,6 +93,12 @@ export function initDatabase() {
       console.log('Running migration: Adding gender column...');
       db.exec('ALTER TABLE cats ADD COLUMN gender TEXT');
       console.log('✅ Migration completed: gender');
+    }
+    
+    if (!hasIsPrimary) {
+      console.log('Running migration: Adding is_primary column...');
+      db.exec('ALTER TABLE photos ADD COLUMN is_primary BOOLEAN DEFAULT 0');
+      console.log('✅ Migration completed: is_primary');
     }
   } catch (error) {
     console.error('Migration error:', error);
